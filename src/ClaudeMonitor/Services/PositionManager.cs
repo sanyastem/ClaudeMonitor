@@ -8,12 +8,16 @@ namespace ClaudeMonitor.Services;
 public sealed class PositionManager
 {
     private readonly string _posFile;
+    private readonly string _settingsFile;
 
     public PositionManager()
     {
-        _posFile = Path.Combine(
+        var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".claude", "widget-pos.json");
+            ".claude");
+        _posFile = Path.Combine(dir, "widget-pos.json");
+        _settingsFile = Path.Combine(dir, "widget-settings.json");
+        _lastLimitsFile = Path.Combine(dir, "widget-last-limits.json");
     }
 
     public void Save(double left, double top)
@@ -35,6 +39,91 @@ public sealed class PositionManager
             var left = doc.RootElement.GetProperty("Left").GetDouble();
             var top = doc.RootElement.GetProperty("Top").GetDouble();
             return (left, top);
+        }
+        catch { return null; }
+    }
+
+    private Dictionary<string, object> ReadSettings()
+    {
+        try
+        {
+            if (!File.Exists(_settingsFile)) return new();
+            var doc = JsonDocument.Parse(File.ReadAllText(_settingsFile));
+            var dict = new Dictionary<string, object>();
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                dict[prop.Name] = prop.Value.ValueKind switch
+                {
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    _ => prop.Value.ToString() ?? ""
+                };
+            }
+            return dict;
+        }
+        catch { return new(); }
+    }
+
+    private void WriteSetting(string key, object value)
+    {
+        try
+        {
+            var settings = ReadSettings();
+            settings[key] = value;
+            var json = JsonSerializer.Serialize(settings);
+            File.WriteAllText(_settingsFile, json);
+        }
+        catch { }
+    }
+
+    private bool GetBool(string key, bool defaultValue = false)
+    {
+        var settings = ReadSettings();
+        return settings.TryGetValue(key, out var v) && v is bool b ? b : defaultValue;
+    }
+
+    public bool AlwaysVisible
+    {
+        get => GetBool("AlwaysVisible");
+        set => WriteSetting("AlwaysVisible", value);
+    }
+
+    public bool AlwaysOnTop
+    {
+        get => GetBool("AlwaysOnTop", true);
+        set => WriteSetting("AlwaysOnTop", value);
+    }
+
+    public bool ShowIdleLimits
+    {
+        get => GetBool("ShowIdleLimits", true);
+        set => WriteSetting("ShowIdleLimits", value);
+    }
+
+    private readonly string _lastLimitsFile;
+
+    public void SaveLastLimits(double rl5, long rl5Reset, double rl7, long rl7Reset)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(new { Rl5 = rl5, Rl5Reset = rl5Reset, Rl7 = rl7, Rl7Reset = rl7Reset });
+            File.WriteAllText(_lastLimitsFile, json);
+        }
+        catch { }
+    }
+
+    public (double rl5, long rl5Reset, double rl7, long rl7Reset)? LoadLastLimits()
+    {
+        try
+        {
+            if (!File.Exists(_lastLimitsFile)) return null;
+            var doc = JsonDocument.Parse(File.ReadAllText(_lastLimitsFile));
+            return (
+                doc.RootElement.GetProperty("Rl5").GetDouble(),
+                doc.RootElement.GetProperty("Rl5Reset").GetInt64(),
+                doc.RootElement.GetProperty("Rl7").GetDouble(),
+                doc.RootElement.GetProperty("Rl7Reset").GetInt64()
+            );
         }
         catch { return null; }
     }

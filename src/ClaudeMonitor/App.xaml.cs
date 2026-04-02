@@ -47,6 +47,30 @@ public partial class App : Application
         var showHide = new System.Windows.Forms.ToolStripMenuItem("Show/Hide");
         showHide.Click += (_, _) => ToggleWindow();
 
+        var alwaysVisible = new System.Windows.Forms.ToolStripMenuItem("Always visible");
+        alwaysVisible.Checked = _mainWindow!.AlwaysVisible;
+        alwaysVisible.Click += (_, _) =>
+        {
+            _mainWindow.AlwaysVisible = !_mainWindow.AlwaysVisible;
+            alwaysVisible.Checked = _mainWindow.AlwaysVisible;
+        };
+
+        var onTop = new System.Windows.Forms.ToolStripMenuItem("Always on top");
+        onTop.Checked = _mainWindow!.AlwaysOnTop;
+        onTop.Click += (_, _) =>
+        {
+            _mainWindow.AlwaysOnTop = !_mainWindow.AlwaysOnTop;
+            onTop.Checked = _mainWindow.AlwaysOnTop;
+        };
+
+        var showLimits = new System.Windows.Forms.ToolStripMenuItem("Show limits when idle");
+        showLimits.Checked = _mainWindow.ShowIdleLimits;
+        showLimits.Click += (_, _) =>
+        {
+            _mainWindow.ShowIdleLimits = !_mainWindow.ShowIdleLimits;
+            showLimits.Checked = _mainWindow.ShowIdleLimits;
+        };
+
         var autostart = new System.Windows.Forms.ToolStripMenuItem("Autostart");
         autostart.Checked = IsAutostartEnabled();
         autostart.Click += (_, _) =>
@@ -60,6 +84,9 @@ public partial class App : Application
         exit.Click += (_, _) => ExitApp();
 
         menu.Items.Add(showHide);
+        menu.Items.Add(alwaysVisible);
+        menu.Items.Add(onTop);
+        menu.Items.Add(showLimits);
         menu.Items.Add(autostart);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add(exit);
