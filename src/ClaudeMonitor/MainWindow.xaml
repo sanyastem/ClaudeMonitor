@@ -1,0 +1,121 @@
+<Window x:Class="ClaudeMonitor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:ClaudeMonitor.Converters"
+        Title="Claude Monitor"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True" ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="Height"
+        Width="340"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp">
+
+    <Window.Resources>
+        <conv:ContextPercentToWidthConverter x:Key="CtxWidthConv"/>
+        <conv:ContextPercentToBrushConverter x:Key="CtxBrushConv"/>
+        <conv:ContextPercentToForegroundConverter x:Key="CtxFgConv"/>
+        <conv:CostToColorConverter x:Key="CostColorConv"/>
+        <conv:PercentToColorConverter x:Key="PctColorConv"/>
+        <conv:RateLimitToVisibilityConverter x:Key="RlVisConv"/>
+        <conv:NegativeToVisibilityConverter x:Key="NegVisConv"/>
+    </Window.Resources>
+
+    <Border CornerRadius="12" Padding="16">
+        <Border.Background>
+            <SolidColorBrush Color="#1a1a2e" Opacity="0.92"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="2" Color="#000000" Opacity="0.5"/>
+        </Border.Effect>
+        <StackPanel>
+            <TextBlock Text="Claude Monitor" FontSize="13" FontWeight="Bold" Foreground="#666666" Margin="0,0,0,6"/>
+
+            <!-- No sessions message -->
+            <TextBlock x:Name="tbNoSessions" Text="No active sessions" FontSize="12" Foreground="#555555" Margin="0,4,0,0"/>
+
+            <!-- Session cards -->
+            <ItemsControl x:Name="sessionsList" ItemsSource="{Binding Sessions}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border CornerRadius="8" Padding="10" Margin="0,4" Background="#252545">
+                            <StackPanel>
+                                <!-- Model + Session ID -->
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" FontSize="10" Foreground="#555555">
+                                        <Run Text="#"/><Run Text="{Binding ShortId, Mode=OneWay}"/>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Model}" FontSize="14" FontWeight="Bold" Foreground="#c084fc"/>
+                                </DockPanel>
+
+                                <!-- Context Bar -->
+                                <Grid Margin="0,6,0,2">
+                                    <Border CornerRadius="3" Height="8" Background="#333333"/>
+                                    <Border CornerRadius="3" Height="8" HorizontalAlignment="Left"
+                                            Width="{Binding ContextPercent, Converter={StaticResource CtxWidthConv}}"
+                                            Background="{Binding ContextPercent, Converter={StaticResource CtxBrushConv}}"/>
+                                </Grid>
+                                <TextBlock FontSize="10"
+                                           Foreground="{Binding ContextPercent, Converter={StaticResource CtxFgConv}}">
+                                    <Run Text="{Binding ContextText, Mode=OneWay}"/><Run Text=" context"/>
+                                </TextBlock>
+
+                                <!-- Cost / Time / Lines -->
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock FontSize="9" Foreground="#666666" Text="Cost"/>
+                                        <TextBlock FontSize="13" FontWeight="Bold"
+                                                   Text="{Binding CostText}"
+                                                   Foreground="{Binding Cost, Converter={StaticResource CostColorConv}}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock FontSize="9" Foreground="#666666" Text="Time"/>
+                                        <TextBlock FontSize="13" FontWeight="Bold" Foreground="#38bdf8"
+                                                   Text="{Binding DurationText}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock FontSize="9" Foreground="#666666" Text="Lines"/>
+                                        <TextBlock FontSize="13" FontWeight="Bold" Foreground="#888888"
+                                                   Text="{Binding LinesText}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Rate Limits -->
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock FontSize="9" Foreground="#666666" Text="5h Limit"/>
+                                        <TextBlock FontSize="12" FontWeight="Bold"
+                                                   Visibility="{Binding Rl5Percent, Converter={StaticResource RlVisConv}}"
+                                                   Text="{Binding Rl5Text}"
+                                                   Foreground="{Binding Rl5Percent, Converter={StaticResource PctColorConv}}"/>
+                                        <TextBlock FontSize="12" Foreground="#555555" Text="n/a"
+                                                   Visibility="{Binding Rl5Percent, Converter={StaticResource NegVisConv}}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock FontSize="9" Foreground="#666666" Text="7d Limit"/>
+                                        <TextBlock FontSize="12" FontWeight="Bold"
+                                                   Visibility="{Binding Rl7Percent, Converter={StaticResource RlVisConv}}"
+                                                   Text="{Binding Rl7Text}"
+                                                   Foreground="{Binding Rl7Percent, Converter={StaticResource PctColorConv}}"/>
+                                        <TextBlock FontSize="12" Foreground="#555555" Text="n/a"
+                                                   Visibility="{Binding Rl7Percent, Converter={StaticResource NegVisConv}}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</Window>
