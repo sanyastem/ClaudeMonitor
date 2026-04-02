@@ -9,54 +9,6 @@
         Width="400" Height="340"
         Topmost="True">
 
-    <Border CornerRadius="16" Padding="24">
-        <Border.Background>
-            <SolidColorBrush Color="#1a1a2e" Opacity="0.95"/>
-        </Border.Background>
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="30" ShadowDepth="3" Color="#000000" Opacity="0.5"/>
-        </Border.Effect>
-        <StackPanel>
-            <TextBlock Text="Claude Monitor" FontSize="20" FontWeight="Bold" Foreground="#c084fc"
-                       HorizontalAlignment="Center" Margin="0,0,0,4"/>
-            <TextBlock Text="v1.0.0" FontSize="11" Foreground="#555" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-
-            <TextBlock Text="Choose widget position:" FontSize="13" Foreground="#aaaaaa"
-                       HorizontalAlignment="Center" Margin="0,0,0,16"/>
-
-            <!-- Monitor preview with position buttons -->
-            <Border CornerRadius="8" Background="#0d0d1a" Width="280" Height="160" Margin="0,0,0,16">
-                <Grid Margin="8">
-                    <!-- Corner buttons -->
-                    <Button x:Name="btnTopLeft" Content="&#x2196;" ToolTip="Top Left"
-                            HorizontalAlignment="Left" VerticalAlignment="Top"
-                            Click="Position_Click" Tag="TopLeft"
-                            Style="{StaticResource PosBtn}"/>
-                    <Button x:Name="btnTopRight" Content="&#x2197;" ToolTip="Top Right"
-                            HorizontalAlignment="Right" VerticalAlignment="Top"
-                            Click="Position_Click" Tag="TopRight"
-                            Style="{StaticResource PosBtn}"/>
-                    <Button x:Name="btnBottomLeft" Content="&#x2199;" ToolTip="Bottom Left"
-                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                            Click="Position_Click" Tag="BottomLeft"
-                            Style="{StaticResource PosBtn}"/>
-                    <Button x:Name="btnBottomRight" Content="&#x2198;" ToolTip="Bottom Right"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                            Click="Position_Click" Tag="BottomRight"
-                            Style="{StaticResource PosBtn}"/>
-
-                    <!-- Monitor label -->
-                    <TextBlock Text="Your Screen" FontSize="10" Foreground="#333"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Grid>
-            </Border>
-
-            <TextBlock Text="You can drag the widget to reposition it anytime."
-                       FontSize="11" Foreground="#666" HorizontalAlignment="Center"
-                       TextWrapping="Wrap" TextAlignment="Center"/>
-        </StackPanel>
-    </Border>
-
     <Window.Resources>
         <Style x:Key="PosBtn" TargetType="Button">
             <Setter Property="Width" Value="44"/>
@@ -88,4 +40,49 @@
             </Setter>
         </Style>
     </Window.Resources>
+
+    <Border CornerRadius="16" Padding="24">
+        <Border.Background>
+            <SolidColorBrush Color="#1a1a2e" Opacity="0.95"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="3" Color="#000000" Opacity="0.5"/>
+        </Border.Effect>
+        <StackPanel>
+            <TextBlock Text="Claude Monitor" FontSize="20" FontWeight="Bold" Foreground="#c084fc"
+                       HorizontalAlignment="Center" Margin="0,0,0,4"/>
+            <TextBlock Text="v1.0.0" FontSize="11" Foreground="#555" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+
+            <TextBlock Text="Choose widget position:" FontSize="13" Foreground="#aaaaaa"
+                       HorizontalAlignment="Center" Margin="0,0,0,16"/>
+
+            <Border CornerRadius="8" Background="#0d0d1a" Width="280" Height="160" Margin="0,0,0,16">
+                <Grid Margin="8">
+                    <Button x:Name="btnTopLeft" Content="&#x2196;" ToolTip="Top Left"
+                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Click="Position_Click" Tag="TopLeft"
+                            Style="{StaticResource PosBtn}"/>
+                    <Button x:Name="btnTopRight" Content="&#x2197;" ToolTip="Top Right"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Click="Position_Click" Tag="TopRight"
+                            Style="{StaticResource PosBtn}"/>
+                    <Button x:Name="btnBottomLeft" Content="&#x2199;" ToolTip="Bottom Left"
+                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                            Click="Position_Click" Tag="BottomLeft"
+                            Style="{StaticResource PosBtn}"/>
+                    <Button x:Name="btnBottomRight" Content="&#x2198;" ToolTip="Bottom Right"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Click="Position_Click" Tag="BottomRight"
+                            Style="{StaticResource PosBtn}"/>
+
+                    <TextBlock Text="Your Screen" FontSize="10" Foreground="#333"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <TextBlock Text="You can drag the widget to reposition it anytime."
+                       FontSize="11" Foreground="#666" HorizontalAlignment="Center"
+                       TextWrapping="Wrap" TextAlignment="Center"/>
+        </StackPanel>
+    </Border>
 </Window>
