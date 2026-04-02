@@ -1,6 +1,7 @@
 #define MyAppName "Claude Monitor"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "ClaudeMonitor"
+#define MyAppPublisher "Aliaksandr Rubis"
+#define MyAppCopyright "Copyright (c) 2026 Aliaksandr Rubis"
 #define MyAppExeName "ClaudeMonitor.exe"
 #define MyAppURL "https://github.com/sanyastem/ClaudeMonitor"
 
@@ -8,8 +9,11 @@
 AppId={{B8F3A2D1-5E7C-4A9B-8D6F-1C2E3F4A5B6D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}/issues
+AppCopyright={#MyAppCopyright}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=output
@@ -22,6 +26,12 @@ ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=..\src\ClaudeMonitor\Assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 WizardStyle=modern
+LicenseFile=..\LICENSE
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoCopyright={#MyAppCopyright}
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

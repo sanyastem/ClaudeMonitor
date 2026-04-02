@@ -10,6 +10,12 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyName>ClaudeMonitor</AssemblyName>
     <RootNamespace>ClaudeMonitor</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>Aliaksandr Rubis</Authors>
+    <Company>Aliaksandr Rubis</Company>
+    <Copyright>Copyright (c) 2026 Aliaksandr Rubis</Copyright>
+    <Product>Claude Monitor</Product>
+    <Description>Desktop widget for monitoring Claude Code sessions</Description>
     <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
