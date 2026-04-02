@@ -81,6 +81,20 @@ public class SessionViewModelTests
     }
 
     [Fact]
+    public void DurationText_HoursMinutes()
+    {
+        var vm = new SessionViewModel("s1", MakeData(durationMs: 4080000)); // 1h8m
+        Assert.Equal("1h8m", vm.DurationText);
+    }
+
+    [Fact]
+    public void DurationText_DaysHoursMinutes()
+    {
+        var vm = new SessionViewModel("s1", MakeData(durationMs: 93600000)); // 1d2h0m
+        Assert.Equal("1d2h0m", vm.DurationText);
+    }
+
+    [Fact]
     public void LinesText_Format()
     {
         var vm = new SessionViewModel("s1", MakeData(added: 2227, removed: 425));

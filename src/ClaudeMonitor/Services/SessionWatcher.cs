@@ -219,9 +219,15 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
     {
         get
         {
-            var s = (int)(DurationMs / 1000);
-            var m = s / 60; s %= 60;
-            return m > 0 ? $"{m}m{s}s" : $"{s}s";
+            var total = (int)(DurationMs / 1000);
+            var d = total / 86400;
+            var h = total % 86400 / 3600;
+            var m = total % 3600 / 60;
+            var s = total % 60;
+            if (d > 0) return $"{d}d{h}h{m}m";
+            if (h > 0) return $"{h}h{m}m";
+            if (m > 0) return $"{m}m{s}s";
+            return $"{s}s";
         }
     }
     public string LinesText => $"+{LinesAdded} / -{LinesRemoved}";
@@ -237,9 +243,12 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
         if (resetEpoch > 0)
         {
             var diff = Math.Max(0, resetEpoch - DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-            var h = (int)(diff / 3600);
+            var d = (int)(diff / 86400);
+            var h = (int)(diff % 86400 / 3600);
             var m = (int)(diff % 3600 / 60);
-            reset = h > 0 ? $" ({h}h{m}m)" : $" ({m}m)";
+            if (d > 0) reset = $" ({d}d{h}h)";
+            else if (h > 0) reset = $" ({h}h{m}m)";
+            else reset = $" ({m}m)";
         }
         return $"{v}%{reset}";
     }
