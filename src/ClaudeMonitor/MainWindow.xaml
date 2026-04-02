@@ -35,7 +35,14 @@
             <TextBlock Text="Claude Monitor" FontSize="13" FontWeight="Bold" Foreground="#666666" Margin="0,0,0,6"/>
 
             <!-- No sessions message -->
-            <TextBlock x:Name="tbNoSessions" Text="No active sessions" FontSize="12" Foreground="#555555" Margin="0,4,0,0"/>
+            <Border x:Name="noSessionsPanel" CornerRadius="8" Padding="16,12" Background="#252545" Margin="0,4,0,0">
+                <StackPanel>
+                    <TextBlock Text="Waiting for Claude Code session..."
+                               FontSize="12" Foreground="#888" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Start Claude Code to see metrics here"
+                               FontSize="10" Foreground="#555" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
 
             <!-- Tab headers -->
             <ItemsControl x:Name="tabHeaders" Margin="0,0,0,4">

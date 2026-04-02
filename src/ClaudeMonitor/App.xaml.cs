@@ -24,8 +24,19 @@ public partial class App : Application
         }
 
         _mainWindow = new MainWindow();
-        _mainWindow.Show();
 
+        // First run — show position setup
+        var posManager = new Services.PositionManager();
+        if (posManager.Load() == null)
+        {
+            var setup = new SetupWindow();
+            if (setup.ShowDialog() == true)
+            {
+                _mainWindow.ApplySetupPosition(setup.ChosenPosition);
+            }
+        }
+
+        _mainWindow.Show();
         SetupTrayIcon();
     }
 

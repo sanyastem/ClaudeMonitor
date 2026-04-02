@@ -37,23 +37,28 @@ public partial class MainWindow : Window
         _topmostTimer.Start();
     }
 
+    public void ApplySetupPosition(WidgetPosition pos)
+    {
+        var (left, top) = SetupWindow.CalculatePosition(pos, Width, 250);
+        Left = left;
+        Top = top;
+        _positionManager.Save(Left, Top);
+    }
+
     private void OnSessionUpdated(SessionViewModel session)
     {
-        // Auto-switch to the session that just got updated (= active Claude Code window)
         if (_activeSession != session)
             SelectSession(session);
     }
 
     private void OnSessionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        // If active session was removed, switch to first available
         if (_activeSession != null && !_watcher.Sessions.Contains(_activeSession))
             _activeSession = null;
 
         if (_activeSession == null && _watcher.Sessions.Count > 0)
             SelectSession(_watcher.Sessions[0]);
 
-        // Auto-select new sessions
         if (e?.Action == NotifyCollectionChangedAction.Add && e.NewItems?[0] is SessionViewModel newSession)
             SelectSession(newSession);
 
@@ -73,25 +78,12 @@ public partial class MainWindow : Window
     private void UpdateView()
     {
         var hasSessions = _watcher.Sessions.Count > 0;
-        tbNoSessions.Visibility = hasSessions ? Visibility.Collapsed : Visibility.Visible;
+        noSessionsPanel.Visibility = hasSessions ? Visibility.Collapsed : Visibility.Visible;
         sessionContent.Visibility = hasSessions ? Visibility.Visible : Visibility.Collapsed;
         tabHeaders.Visibility = _watcher.Sessions.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
 
-        // Hide window when no sessions, show when sessions appear
-        if (!hasSessions)
-        {
-            Hide();
-        }
-        else
-        {
-            if (!IsVisible)
-            {
-                Show();
-                Topmost = true;
-            }
-            if (_activeSession == null)
-                SelectSession(_watcher.Sessions[0]);
-        }
+        if (hasSessions && _activeSession == null)
+            SelectSession(_watcher.Sessions[0]);
     }
 
     private void Tab_Click(object sender, MouseButtonEventArgs e)
