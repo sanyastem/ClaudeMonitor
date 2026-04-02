@@ -6,46 +6,52 @@ parent: "[[index]]"
 
 # Installation
 
-## Prerequisites
+## Installer (recommended)
 
-- Windows 10/11
-- .NET 10 SDK (for building) or .NET 10 Runtime (for running)
-- Claude Code with statusline configured
+1. Download `ClaudeMonitor-Setup-x.x.x.exe` from [GitHub Releases](https://github.com/sanyastem/ClaudeMonitor/releases/latest)
+2. Run the installer — it will:
+   - Check for **Node.js** and **.NET 10 Runtime**, offer to install via winget if missing
+   - Install to `C:\Program Files\Claude Monitor`
+   - Configure Claude Code statusline automatically
+   - Optionally enable autostart with Windows
+3. On first launch, pick your preferred widget corner
 
-## Build
+## Build from Source
+
+### Prerequisites
+
+- Windows 10/11 (x64)
+- .NET 10 SDK
+- Node.js
+
+### Build
 
 ```bash
 cd src/ClaudeMonitor
-dotnet publish -c Release
+dotnet publish -c Release --self-contained false -p:PublishSingleFile=true
 ```
 
 Output: `bin/Release/net10.0-windows/win-x64/publish/ClaudeMonitor.exe`
 
-## Configure Claude Code Statusline
+### Build installer
 
-The widget reads session data from `~/.claude/widget-sessions/`. Claude Code's statusline script must write to this directory.
+Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 
-### 1. Create statusline script
-
-Save to `~/.claude/statusline.js`:
-
-```javascript
-const fs = require("fs");
-const path = require("path");
-const d = JSON.parse(fs.readFileSync(0, "utf8"));
-
-// Save per-session data for widget
-try {
-  const dir = path.join(process.env.USERPROFILE || process.env.HOME, ".claude", "widget-sessions");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const sid = (d.session_id || "unknown").replace(/[^a-zA-Z0-9_-]/g, "");
-  fs.writeFileSync(path.join(dir, `${sid}.json`), JSON.stringify({ ...d, _ts: Date.now() }));
-} catch(e) {}
-
-// ... rest of statusline output
+```bash
+iscc installer/ClaudeMonitor.iss
 ```
 
-### 2. Add to Claude Code settings
+Output: `installer/output/ClaudeMonitor-Setup-x.x.x.exe`
+
+## Manual Statusline Setup
+
+If not using the installer, configure manually:
+
+### 1. Copy statusline script
+
+Copy `installer/statusline.js` to `~/.claude/statusline.js`
+
+### 2. Configure Claude Code
 
 Edit `~/.claude/settings.json`:
 
@@ -58,36 +64,37 @@ Edit `~/.claude/settings.json`:
 }
 ```
 
-## Run
-
-Double-click `ClaudeMonitor.exe`. The widget appears in the top-right corner.
-
 ## Controls
 
 | Action | Result |
 |--------|--------|
 | Drag window | Reposition (saved automatically) |
-| Tray icon double-click | Show/Hide widget |
-| Tray right-click → Autostart | Toggle Windows startup |
-| Tray right-click → Exit | Close application |
-
-## Autostart
-
-Toggle via tray icon context menu. Sets registry key:
-
-```
-HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\ClaudeMonitor
-```
+| Tray double-click | Show/Hide widget |
+| Tray → Always visible | Show widget even without sessions |
+| Tray → Always on top | Overlay or desktop-only mode |
+| Tray → Show limits when idle | Rate limits visible without sessions |
+| Tray → Autostart | Toggle Windows startup |
+| Tray → Exit | Close application |
 
 ## Troubleshooting
 
-### Widget shows "No active sessions"
+### Widget not showing
 
-- Verify Claude Code is running with statusline configured
+- If "Always visible" is off, widget hides when no Claude Code sessions are active
 - Check `~/.claude/widget-sessions/` for JSON files
-- Session files older than 10 minutes are auto-deleted
+- Verify Claude Code is running with statusline configured
 
-### Widget not visible after monitor change
+### Widget stuck off-screen
 
 - Widget auto-repositions every 30 seconds
-- If stuck, delete `~/.claude/widget-pos.json` and restart
+- Delete `~/.claude/widget-pos.json` and restart to reset position
+
+### Installer didn't configure statusline
+
+- Run manually: `node "C:\Program Files\Claude Monitor\setup-statusline.js" "C:\Program Files\Claude Monitor"`
+- Or configure manually (see [[#Manual Statusline Setup]])
+
+### Session disappears too quickly
+
+- Sessions auto-remove after 1 minute of inactivity
+- This is expected — the session file is only updated when Claude Code responds

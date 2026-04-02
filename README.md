@@ -2,90 +2,112 @@
 
 A lightweight WPF desktop widget for Windows that displays real-time Claude Code session metrics.
 
+## Download
+
+**[Latest Release](https://github.com/sanyastem/ClaudeMonitor/releases/latest)** — download `ClaudeMonitor-Setup-x.x.x.exe` and run the installer.
+
 ## Features
 
-- **Multi-session support** — each Claude Code session is displayed as a separate card
-- **Real-time updates** — uses FileSystemWatcher for instant data refresh
-- **Always on top** — stays visible over all windows
+- **Multi-session tabs** — each Claude Code session displayed as a tab, auto-switches to active session
+- **Real-time updates** — FileSystemWatcher for instant data refresh, no polling
+- **First-run setup** — position picker on first launch
+- **Configurable visibility** — always visible or only when sessions are active
+- **Always on top** — toggle between overlay mode and desktop-only
+- **Idle rate limits** — show 5h/7d usage limits even without active sessions
 - **Monitor-aware** — automatically repositions when displays change
-- **System tray** — minimize to tray, toggle visibility, autostart with Windows
-- **Position memory** — remembers where you placed it
-- **Low memory footprint** — ~15-20MB RAM, event-driven (no polling)
-- **Single instance** — prevents duplicate processes via Mutex
-- **Stale session cleanup** — sessions inactive for 10+ minutes auto-remove
+- **System tray** — full settings via right-click context menu
+- **Position memory** — remembers where you placed it across restarts
+- **Low memory** — ~15-20MB RAM, ~1KB per session file, event-driven
+- **Single instance** — Mutex prevents duplicate processes
+- **Stale cleanup** — sessions inactive for 1 minute auto-remove
 
 ## Session Metrics
-
-Each session card shows:
 
 | Metric | Description |
 |--------|-------------|
 | Model | Active model name (Opus, Sonnet, etc.) |
 | Context | Visual progress bar + percentage |
 | Cost | Session cost in USD |
-| Time | Session duration |
+| Time | Session duration (seconds, minutes, hours, days) |
 | Lines | Lines added / removed |
-| 5h Limit | 5-hour rate limit usage + reset timer |
-| 7d Limit | 7-day rate limit usage + reset timer |
+| 5h Limit | 5-hour rate limit usage + time until reset |
+| 7d Limit | 7-day rate limit usage + time until reset |
 
-## Requirements
+## Tray Menu
 
-- Windows 10/11
-- .NET 10 Runtime
-- Claude Code with statusline configured
+| Option | Description |
+|--------|-------------|
+| Show/Hide | Toggle widget visibility |
+| Always visible | Keep widget visible even without active sessions |
+| Always on top | Overlay on all windows or desktop-only |
+| Show limits when idle | Display rate limits when no sessions are active |
+| Autostart | Launch with Windows (registry-based) |
+| Exit | Close the application |
 
-## Setup
+All settings persist in `~/.claude/widget-settings.json`.
 
-### 1. Build
+## Installation
+
+### Installer (recommended)
+
+Download and run the setup from [Releases](https://github.com/sanyastem/ClaudeMonitor/releases/latest). The installer will:
+
+1. Check for Node.js and .NET 10 Runtime, offer to install if missing
+2. Install Claude Monitor to `C:\Program Files\Claude Monitor`
+3. Configure Claude Code statusline automatically
+4. Optionally add to Windows startup
+
+### Build from source
 
 ```bash
 cd src/ClaudeMonitor
-dotnet publish -c Release
+dotnet publish -c Release --self-contained false -p:PublishSingleFile=true
 ```
 
-The executable will be at `bin/Release/net10.0-windows/win-x64/publish/ClaudeMonitor.exe`
+Output: `bin/Release/net10.0-windows/win-x64/publish/ClaudeMonitor.exe`
 
-### 2. Configure Claude Code statusline
+### Manual statusline setup
 
-Add to `~/.claude/settings.json`:
+If not using the installer, add to `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "node C:/Users/<YOU>/.claude/statusline.js"
+    "command": "node C:/Users/<YOUR_USERNAME>/.claude/statusline.js"
   }
 }
 ```
 
-The `statusline.js` script writes session data to `~/.claude/widget-sessions/<session_id>.json` which the widget monitors.
+The `statusline.js` script writes per-session data to `~/.claude/widget-sessions/<session_id>.json`.
 
-### 3. Run
+## Requirements
 
-Double-click `ClaudeMonitor.exe`. Right-click the tray icon to:
-- **Show/Hide** the overlay
-- **Toggle Autostart** (adds to Windows startup via registry)
-- **Exit** the application
-
-## Usage
-
-- **Drag** the widget to reposition (position is saved)
-- **Tray icon double-click** to show/hide
-- Widget automatically follows primary monitor changes
+- Windows 10/11 (x64)
+- [Node.js](https://nodejs.org) (for statusline script)
+- [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (for widget)
+- [Claude Code](https://claude.ai/code)
 
 ## Architecture
 
 ```
 src/ClaudeMonitor/
-├── Models/SessionData.cs       # JSON data model
+├── Models/SessionData.cs          # JSON deserialization models
 ├── Services/
-│   ├── SessionWatcher.cs       # FileSystemWatcher + ObservableCollection
-│   └── PositionManager.cs      # Position persistence + screen bounds
-├── Converters/ValueConverters.cs  # WPF value converters
-├── MainWindow.xaml/cs          # Overlay window
-└── App.xaml/cs                 # Tray icon, single instance, autostart
+│   ├── SessionWatcher.cs          # FileSystemWatcher + ObservableCollection
+│   └── PositionManager.cs         # Position, settings, rate limits persistence
+├── Converters/ValueConverters.cs  # WPF value converters (colors, widths)
+├── SetupWindow.xaml/cs            # First-run position picker
+├── MainWindow.xaml/cs             # Overlay window with tabs
+└── App.xaml/cs                    # Tray icon, single instance, autostart
+```
+
+### Data flow
+
+```
+Claude Code → statusline.js → ~/.claude/widget-sessions/<id>.json → ClaudeMonitor
 ```
 
 ## License
 
-MIT
+MIT — Copyright (c) 2026 Aliaksandr Rubis

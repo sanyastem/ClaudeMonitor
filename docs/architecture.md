@@ -24,7 +24,7 @@ FileSystemWatcher (SessionWatcher.cs)
 ObservableCollection<SessionViewModel>
        │
        ▼
-WPF ItemsControl (MainWindow.xaml)
+WPF TabControl-style UI (MainWindow.xaml)
 ```
 
 ## Project Structure
@@ -35,14 +35,23 @@ src/ClaudeMonitor/
 │   └── SessionData.cs         # JSON deserialization models
 ├── Services/
 │   ├── SessionWatcher.cs      # File monitoring + data binding
-│   └── PositionManager.cs     # Window position persistence
+│   └── PositionManager.cs     # Position, settings, rate limits persistence
 ├── Converters/
 │   └── ValueConverters.cs     # WPF value converters for colors/widths
 ├── Assets/
-│   └── icon.ico               # Tray icon
-├── App.xaml / App.xaml.cs      # Entry point, tray icon, single instance
-├── MainWindow.xaml / .cs       # Overlay window
-└── ClaudeMonitor.csproj        # Project config
+│   └── icon.ico               # Tray icon (16/24/32/48px)
+├── SetupWindow.xaml / .cs     # First-run position picker
+├── App.xaml / App.xaml.cs     # Entry point, tray icon, single instance
+├── MainWindow.xaml / .cs      # Overlay window with tabs
+└── ClaudeMonitor.csproj       # Project config
+
+installer/
+├── ClaudeMonitor.iss          # Inno Setup script
+├── statusline.js              # Bundled statusline for distribution
+└── setup-statusline.js        # Post-install config script
+
+tests/ClaudeMonitor.Tests/     # xUnit tests
+docs/                          # Obsidian-compatible documentation
 ```
 
 ## Components
@@ -52,44 +61,67 @@ src/ClaudeMonitor/
 - Watches `~/.claude/widget-sessions/` for `.json` file changes
 - Debounces events (300ms) to avoid excessive reloads
 - Maintains `ObservableCollection<SessionViewModel>` bound to UI
-- Auto-removes sessions not updated for 10+ minutes
+- Fires `SessionUpdated` event to trigger tab auto-switching
+- Auto-removes sessions not updated for 1 minute
 - Cleans up stale JSON files from disk
 
 ### SessionViewModel
 
 - Implements `INotifyPropertyChanged` for live UI updates
+- Tab state properties: `IsActive`, `TabBackground`, `TabForeground`, `ActiveIndicator`
 - Computed properties: `ContextBarWidth`, `DurationText`, `CostText`, `Rl5Text`, `Rl7Text`
+- Time formatting: seconds → minutes → hours → days
 - Color thresholds: green (<50%), yellow (<80%), red (80%+)
 
 ### PositionManager
 
-- Saves/loads position to `~/.claude/widget-pos.json`
+- **Position**: saves/loads to `~/.claude/widget-pos.json`
+- **Settings**: saves/loads to `~/.claude/widget-settings.json`
+  - `AlwaysVisible` — show widget without active sessions
+  - `AlwaysOnTop` — overlay or desktop-only mode
+  - `ShowIdleLimits` — display rate limits in idle state
+- **Last limits**: saves/loads to `~/.claude/widget-last-limits.json`
 - `EnsureOnScreen()` — checks against virtual screen bounds
-- If widget is off-screen (monitor removed), resets to primary monitor top-right
+
+### SetupWindow
+
+- Shown on first launch (when no saved position exists)
+- Visual monitor preview with 4 corner buttons
+- Calculates position based on primary screen WorkingArea
 
 ### App
 
 - `Mutex` prevents duplicate instances
-- `NotifyIcon` for system tray with context menu
-- Registry-based autostart (`HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`)
-- `ShutdownMode="OnExplicitShutdown"` — closing window hides to tray
+- `NotifyIcon` system tray with context menu (5 items + exit)
+- Registry-based autostart (`HKCU\...\Run`)
+- `ShutdownMode="OnExplicitShutdown"` — closing hides to tray
+- First-run detection via PositionManager
+
+## Persisted Files
+
+| File | Purpose | Size |
+|------|---------|------|
+| `widget-sessions/<id>.json` | Per-session metrics (auto-cleaned) | ~1KB |
+| `widget-pos.json` | Window position | ~30B |
+| `widget-settings.json` | User preferences | ~80B |
+| `widget-last-limits.json` | Last known rate limits | ~60B |
 
 ## Session JSON Format
 
 ```json
 {
   "session_id": "abc123",
-  "model": { "id": "claude-opus-4-6", "display_name": "Opus" },
-  "context_window": { "used_percentage": 35.2, "context_window_size": 200000 },
+  "model": { "id": "claude-opus-4-6", "display_name": "Opus 4.6 (1M context)" },
+  "context_window": { "used_percentage": 35.2, "context_window_size": 1000000 },
   "cost": {
-    "total_cost_usd": 0.42,
-    "total_duration_ms": 125000,
-    "total_lines_added": 15,
-    "total_lines_removed": 3
+    "total_cost_usd": 12.15,
+    "total_duration_ms": 3881000,
+    "total_lines_added": 2227,
+    "total_lines_removed": 425
   },
   "rate_limits": {
     "five_hour": { "used_percentage": 22.5, "resets_at": 1743620000 },
-    "seven_day": { "used_percentage": 8.1, "resets_at": 1744050000 }
+    "seven_day": { "used_percentage": 13.0, "resets_at": 1744050000 }
   },
   "_ts": 1743600000000
 }
@@ -97,7 +129,8 @@ src/ClaudeMonitor/
 
 ## Memory Efficiency
 
-- FileSystemWatcher is event-driven — no polling for file reads
-- Debounce prevents rapid successive UI rebuilds
-- `SessionViewModel` reuses objects via `Update()` instead of recreating
-- Single-instance Mutex prevents accidental memory duplication
+- FileSystemWatcher is event-driven — no polling
+- Debounce (300ms) prevents rapid UI rebuilds
+- `SessionViewModel.Update()` reuses objects instead of recreating
+- Single-instance Mutex prevents duplication
+- Session files ~1KB each, auto-deleted after 1 minute of inactivity
