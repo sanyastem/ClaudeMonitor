@@ -68,13 +68,10 @@ public partial class App : Application
     {
         try
         {
-            var exePath = Environment.ProcessPath;
-            if (exePath != null)
-            {
-                var iconPath = Path.Combine(Path.GetDirectoryName(exePath)!, "icon.ico");
-                if (File.Exists(iconPath))
-                    return new System.Drawing.Icon(iconPath);
-            }
+            var uri = new Uri("pack://application:,,,/Assets/icon.ico");
+            var stream = System.Windows.Application.GetResourceStream(uri)?.Stream;
+            if (stream != null)
+                return new System.Drawing.Icon(stream, 32, 32);
         }
         catch { }
 

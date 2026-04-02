@@ -17,11 +17,12 @@ public sealed class SessionWatcher : IDisposable
     private DateTime _lastChange = DateTime.MinValue;
     private DispatcherTimer? _debounceTimer;
 
-    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(300);
-    private static readonly TimeSpan StaleCheckInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan StaleCheckInterval = TimeSpan.FromSeconds(15);
 
     public ObservableCollection<SessionViewModel> Sessions { get; } = new();
+    public event Action<SessionViewModel>? SessionUpdated;
 
     public SessionWatcher(Dispatcher dispatcher)
     {
@@ -47,13 +48,17 @@ public sealed class SessionWatcher : IDisposable
         LoadAll();
     }
 
+    private string? _lastChangedFile;
+
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
+        _lastChangedFile = e.Name;
         _dispatcher.BeginInvoke(() => ScheduleRefresh());
     }
 
     private void OnFileDeleted(object sender, FileSystemEventArgs e)
     {
+        _lastChangedFile = null;
         _dispatcher.BeginInvoke(() => ScheduleRefresh());
     }
 
@@ -93,7 +98,9 @@ public sealed class SessionWatcher : IDisposable
                     }
 
                     activeIds.Add(sid);
-                    UpdateOrAddSession(sid, data);
+                    var wasChanged = _lastChangedFile != null &&
+                        Path.GetFileNameWithoutExtension(_lastChangedFile) == sid;
+                    UpdateOrAddSession(sid, data, wasChanged);
                 }
                 catch { /* skip corrupt files */ }
             }
@@ -108,16 +115,19 @@ public sealed class SessionWatcher : IDisposable
         }
     }
 
-    private void UpdateOrAddSession(string sid, SessionData data)
+    private void UpdateOrAddSession(string sid, SessionData data, bool wasChanged)
     {
         var existing = Sessions.FirstOrDefault(s => s.SessionId == sid);
         if (existing != null)
         {
             existing.Update(data);
+            if (wasChanged)
+                SessionUpdated?.Invoke(existing);
         }
         else
         {
-            Sessions.Insert(0, new SessionViewModel(sid, data));
+            var vm = new SessionViewModel(sid, data);
+            Sessions.Insert(0, vm);
         }
     }
 
@@ -176,6 +186,30 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
     public long Rl5Reset { get => _rl5Reset; private set { _rl5Reset = value; OnPropertyChanged(nameof(Rl5Text)); } }
     public long Rl7Reset { get => _rl7Reset; private set { _rl7Reset = value; OnPropertyChanged(nameof(Rl7Text)); } }
     public long Timestamp { get => _timestamp; private set { _timestamp = value; OnPropertyChanged(nameof(Timestamp)); } }
+
+    private bool _isActive;
+    public bool IsActive
+    {
+        get => _isActive;
+        set
+        {
+            _isActive = value;
+            OnPropertyChanged(nameof(IsActive));
+            OnPropertyChanged(nameof(TabBackground));
+            OnPropertyChanged(nameof(TabForeground));
+            OnPropertyChanged(nameof(ActiveIndicator));
+        }
+    }
+
+    public System.Windows.Media.SolidColorBrush TabBackground => new(
+        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+            IsActive ? "#252545" : "#16162a"));
+    public System.Windows.Media.SolidColorBrush TabForeground => new(
+        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+            IsActive ? "#c084fc" : "#555555"));
+    public System.Windows.Media.SolidColorBrush ActiveIndicator => new(
+        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+            IsActive ? "#4ade80" : "#333333"));
 
     public string ShortId => SessionId.Length > 8 ? SessionId[..8] : SessionId;
     public double ContextBarWidth => Math.Round(ContextPercent * 2.72, 1); // 272px max scaled
