@@ -3,5 +3,5 @@ obj/
 *.user
 *.suo
 .vs/
-*.exe
 publish/
+installer/output/
