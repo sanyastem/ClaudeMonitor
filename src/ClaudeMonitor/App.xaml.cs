@@ -71,15 +71,7 @@ public partial class App : Application
         };
 
         var about = new System.Windows.Forms.ToolStripMenuItem("About");
-        about.Click += (_, _) =>
-        {
-            var ver = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "?";
-            System.Windows.MessageBox.Show(
-                $"Claude Monitor v{ver}\n\nDesktop widget for Claude Code session monitoring.\n\nCopyright (c) 2026 Aliaksandr Rubis\nMIT License",
-                "About Claude Monitor",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        };
+        about.Click += (_, _) => new AboutWindow().ShowDialog();
 
         var exit = new System.Windows.Forms.ToolStripMenuItem("Exit");
         exit.Click += (_, _) => ExitApp();
