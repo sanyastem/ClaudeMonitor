@@ -26,6 +26,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=..\src\ClaudeMonitor\Assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 WizardStyle=modern
+CloseApplications=force
+CloseApplicationsFilter=ClaudeMonitor.exe
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoCopyright={#MyAppCopyright}
@@ -39,9 +41,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "autostart"; Description: "Start with Windows"; GroupDescription: "Additional options:"
 Name: "statusline"; Description: "Configure Claude Code statusline"; GroupDescription: "Claude Code integration:"
 
+[InstallDelete]
+Type: files; Name: "{app}\ClaudeMonitor.exe"
+
 [Files]
 ; Main application
-Source: "..\src\ClaudeMonitor\bin\Release\net10.0-windows\win-x64\publish\ClaudeMonitor.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\ClaudeMonitor\bin\Release\net10.0-windows\win-x64\publish\ClaudeMonitor.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 ; Statusline script
 Source: "statusline.js"; DestDir: "{app}"; Flags: ignoreversion
 ; Setup helper
@@ -85,6 +90,10 @@ var
   ResultCode: Integer;
 begin
   Result := '';
+
+  // Kill running instance
+  Exec('cmd', '/c taskkill /F /IM ClaudeMonitor.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(500);
 
   // Check Node.js
   if not NodeJsInstalled() then
