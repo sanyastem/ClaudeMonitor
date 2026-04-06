@@ -63,8 +63,10 @@ Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 ; Configure statusline after install
 Filename: "node"; Parameters: """{app}\setup-statusline.js"" ""{app}"""; StatusMsg: "Configuring Claude Code statusline..."; Flags: runhidden shellexec nowait; Tasks: statusline
-; Launch after install
+; Launch after install (interactive)
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; Launch after silent install (auto-update)
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifdoesntexist runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 ; Clean up autostart registry on uninstall
