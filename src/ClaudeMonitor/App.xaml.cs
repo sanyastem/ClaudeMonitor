@@ -10,6 +10,7 @@ public partial class App : Application
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private MainWindow? _mainWindow;
     private Mutex? _mutex;
+    private Services.UpdateChecker? _updateChecker;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -38,6 +39,7 @@ public partial class App : Application
 
         _mainWindow.Show();
         SetupTrayIcon();
+        SetupUpdateChecker();
     }
 
     private void SetupTrayIcon()
@@ -160,8 +162,76 @@ public partial class App : Application
         catch { }
     }
 
+    private void SetupUpdateChecker()
+    {
+        var version = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        _updateChecker = new Services.UpdateChecker(System.Windows.Threading.Dispatcher.CurrentDispatcher, version);
+        _updateChecker.UpdateAvailable += (newVersion, downloadUrl) =>
+        {
+            _trayIcon?.ShowBalloonTip(
+                5000,
+                "Claude Monitor Update",
+                $"Version {newVersion} is available. Click to install.",
+                System.Windows.Forms.ToolTipIcon.Info);
+
+            _trayIcon!.BalloonTipClicked += async (_, _) => await DownloadAndInstall(downloadUrl);
+        };
+    }
+
+    private async Task DownloadAndInstall(string downloadUrl)
+    {
+        try
+        {
+            _trayIcon?.ShowBalloonTip(3000, "Claude Monitor", "Downloading update...", System.Windows.Forms.ToolTipIcon.Info);
+
+            using var http = new System.Net.Http.HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("ClaudeMonitor");
+
+            // For private repos, try gh token
+            var tokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "widget-gh-token.txt");
+            if (File.Exists(tokenFile))
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", File.ReadAllText(tokenFile).Trim());
+            else
+            {
+                var ghHosts = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GitHub CLI", "hosts.yml");
+                if (File.Exists(ghHosts))
+                {
+                    foreach (var line in File.ReadAllLines(ghHosts))
+                    {
+                        var t = line.Trim();
+                        if (t.StartsWith("oauth_token:"))
+                        {
+                            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", t["oauth_token:".Length..].Trim());
+                            break;
+                        }
+                    }
+                }
+            }
+            http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/octet-stream"));
+
+            var bytes = await http.GetByteArrayAsync(downloadUrl);
+            var tempPath = Path.Combine(Path.GetTempPath(), "ClaudeMonitor-Setup.exe");
+            await File.WriteAllBytesAsync(tempPath, bytes);
+
+            // Launch installer silently and exit current instance
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = tempPath,
+                Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+                UseShellExecute = true
+            });
+
+            ExitApp();
+        }
+        catch (Exception ex)
+        {
+            _trayIcon?.ShowBalloonTip(5000, "Update failed", $"Could not download update: {ex.Message}", System.Windows.Forms.ToolTipIcon.Error);
+        }
+    }
+
     private void ExitApp()
     {
+        _updateChecker?.Dispose();
         _trayIcon?.Dispose();
         _mainWindow?.Close();
         _mutex?.ReleaseMutex();

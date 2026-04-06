@@ -1,5 +1,5 @@
 #define MyAppName "Claude Monitor"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "Aliaksandr Rubis"
 #define MyAppCopyright "Copyright (c) 2026 Aliaksandr Rubis"
 #define MyAppExeName "ClaudeMonitor.exe"

@@ -126,7 +126,7 @@ public partial class MainWindow : Window
             if (!IsVisible)
             {
                 Show();
-                Topmost = true;
+                Topmost = AlwaysOnTop;
             }
         }
         else
@@ -137,7 +137,7 @@ public partial class MainWindow : Window
             else if (!IsVisible)
             {
                 Show();
-                Topmost = true;
+                Topmost = AlwaysOnTop;
             }
         }
 
