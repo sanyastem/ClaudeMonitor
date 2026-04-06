@@ -9,6 +9,7 @@ namespace ClaudeMonitor.Services;
 public sealed class UpdateChecker : IDisposable
 {
     private readonly DispatcherTimer _timer;
+    private DispatcherTimer? _startupDelay;
     private readonly HttpClient _http;
     private readonly string _currentVersion;
     private readonly string _repo;
@@ -30,13 +31,13 @@ public sealed class UpdateChecker : IDisposable
         _timer = new DispatcherTimer(TimeSpan.FromHours(12), DispatcherPriority.Background, async (_, _) => await CheckAsync(), dispatcher);
 
         // Check after 30 seconds on startup, then every 12 hours
-        var startupDelay = new DispatcherTimer(TimeSpan.FromSeconds(30), DispatcherPriority.Background, async (s, _) =>
+        _startupDelay = new DispatcherTimer(TimeSpan.FromSeconds(30), DispatcherPriority.Background, async (s, _) =>
         {
             ((DispatcherTimer)s!).Stop();
             await CheckAsync();
             _timer.Start();
         }, dispatcher);
-        startupDelay.Start();
+        _startupDelay.Start();
     }
 
     public event Action? NoUpdateAvailable;
@@ -52,7 +53,7 @@ public sealed class UpdateChecker : IDisposable
             if (!string.IsNullOrEmpty(token))
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var response = await _http.SendAsync(request);
+            using var response = await _http.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
                 Log.Error($"Update check failed: HTTP {(int)response.StatusCode}");
@@ -80,10 +81,13 @@ public sealed class UpdateChecker : IDisposable
             {
                 foreach (var asset in assets.EnumerateArray())
                 {
-                    var name = asset.GetProperty("name").GetString() ?? "";
+                    if (!asset.TryGetProperty("name", out var nameProp))
+                        continue;
+                    var name = nameProp.GetString() ?? "";
                     if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                     {
-                        downloadUrl = asset.GetProperty("url").GetString() ?? "";
+                        if (asset.TryGetProperty("url", out var urlProp))
+                            downloadUrl = urlProp.GetString() ?? "";
                         Log.Info($"Asset found: {name}, URL: {downloadUrl}");
                         break;
                     }
@@ -167,6 +171,8 @@ public sealed class UpdateChecker : IDisposable
 
     public void Dispose()
     {
+        _startupDelay?.Stop();
+        _startupDelay = null;
         _timer.Stop();
         _http.Dispose();
     }

@@ -11,6 +11,7 @@ public partial class App : Application
     private Mutex? _mutex;
     private Services.UpdateChecker? _updateChecker;
     private bool _manualUpdateCheck;
+    private EventHandler? _balloonTipClickedHandler;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -37,6 +38,11 @@ public partial class App : Application
             if (setup.ShowDialog() == true)
             {
                 _mainWindow.ApplySetupPosition(setup.ChosenPosition);
+            }
+            else
+            {
+                // User cancelled setup — apply default position anyway
+                _mainWindow.ApplySetupPosition(WidgetPosition.TopRight);
             }
         }
 
@@ -128,7 +134,12 @@ public partial class App : Application
                 $"Version {newVersion} is available. Click to install.",
                 System.Windows.Forms.ToolTipIcon.Info);
 
-            _trayIcon!.BalloonTipClicked += async (_, _) => await DownloadAndInstall(downloadUrl);
+            // Unsubscribe previous handler to avoid leak
+            if (_balloonTipClickedHandler != null)
+                _trayIcon!.BalloonTipClicked -= _balloonTipClickedHandler;
+
+            _balloonTipClickedHandler = async (_, _) => await DownloadAndInstall(downloadUrl);
+            _trayIcon!.BalloonTipClicked += _balloonTipClickedHandler;
         };
     }
 
@@ -195,7 +206,10 @@ public partial class App : Application
             if (proc != null)
             {
                 var token = proc.StandardOutput.ReadToEnd().Trim();
-                proc.WaitForExit(3000);
+                if (!proc.WaitForExit(3000))
+                {
+                    try { proc.Kill(); } catch { }
+                }
                 if (!string.IsNullOrEmpty(token) && !token.Contains(' '))
                     return token;
             }

@@ -48,7 +48,7 @@ public sealed class SessionWatcher : IDisposable
         LoadAll();
     }
 
-    private string? _lastChangedFile;
+    private volatile string? _lastChangedFile;
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
@@ -102,7 +102,7 @@ public sealed class SessionWatcher : IDisposable
                         Path.GetFileNameWithoutExtension(_lastChangedFile) == sid;
                     UpdateOrAddSession(sid, data, wasChanged);
                 }
-                catch { /* skip corrupt files */ }
+                catch (Exception ex) { Log.Error($"Failed to parse session file: {file}", ex); }
             }
         }
         catch { /* dir may not exist yet */ }
@@ -156,6 +156,7 @@ public sealed class SessionWatcher : IDisposable
         _watcher.Dispose();
         _staleTimer.Stop();
         _debounceTimer?.Stop();
+        _debounceTimer = null;
     }
 }
 

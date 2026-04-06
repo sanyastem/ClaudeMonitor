@@ -24,9 +24,13 @@ public static class Log
                 // Rotate if too large
                 if (File.Exists(LogFile) && new FileInfo(LogFile).Length > MaxSize)
                 {
-                    var backup = LogFile + ".old";
-                    File.Delete(backup);
-                    File.Move(LogFile, backup);
+                    try
+                    {
+                        var backup = LogFile + ".old";
+                        File.Delete(backup);
+                        File.Move(LogFile, backup);
+                    }
+                    catch { /* backup may be locked by another process */ }
                 }
 
                 var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{level}] {message}{Environment.NewLine}";

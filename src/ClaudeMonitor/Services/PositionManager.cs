@@ -35,7 +35,7 @@ public sealed class PositionManager
         try
         {
             if (!File.Exists(_posFile)) return null;
-            var doc = JsonDocument.Parse(File.ReadAllText(_posFile));
+            using var doc = JsonDocument.Parse(File.ReadAllText(_posFile));
             var left = doc.RootElement.GetProperty("Left").GetDouble();
             var top = doc.RootElement.GetProperty("Top").GetDouble();
             return (left, top);
@@ -48,7 +48,7 @@ public sealed class PositionManager
         try
         {
             if (!File.Exists(_settingsFile)) return new();
-            var doc = JsonDocument.Parse(File.ReadAllText(_settingsFile));
+            using var doc = JsonDocument.Parse(File.ReadAllText(_settingsFile));
             var dict = new Dictionary<string, object>();
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
@@ -117,7 +117,7 @@ public sealed class PositionManager
         try
         {
             if (!File.Exists(_lastLimitsFile)) return null;
-            var doc = JsonDocument.Parse(File.ReadAllText(_lastLimitsFile));
+            using var doc = JsonDocument.Parse(File.ReadAllText(_lastLimitsFile));
             return (
                 doc.RootElement.GetProperty("Rl5").GetDouble(),
                 doc.RootElement.GetProperty("Rl5Reset").GetInt64(),
