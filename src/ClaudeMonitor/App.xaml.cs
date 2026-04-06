@@ -16,6 +16,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        var ver = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "?";
+        Services.Log.Info($"Claude Monitor v{ver} starting");
+
         // Single instance check
         _mutex = new Mutex(true, "ClaudeMonitor_SingleInstance", out var isNew);
         if (!isNew)
@@ -129,42 +132,31 @@ public partial class App : Application
         };
     }
 
-    private async Task DownloadAndInstall(string downloadUrl)
+    private async Task DownloadAndInstall(string assetApiUrl)
     {
         try
         {
+            Services.Log.Info($"Downloading update from: {assetApiUrl}");
             _trayIcon?.ShowBalloonTip(3000, "Claude Monitor", "Downloading update...", System.Windows.Forms.ToolTipIcon.Info);
 
             using var http = new System.Net.Http.HttpClient();
             http.DefaultRequestHeaders.UserAgent.ParseAdd("ClaudeMonitor");
-
-            // For private repos, try gh token
-            var tokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "widget-gh-token.txt");
-            if (File.Exists(tokenFile))
-                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", File.ReadAllText(tokenFile).Trim());
-            else
-            {
-                var ghHosts = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GitHub CLI", "hosts.yml");
-                if (File.Exists(ghHosts))
-                {
-                    foreach (var line in File.ReadAllLines(ghHosts))
-                    {
-                        var t = line.Trim();
-                        if (t.StartsWith("oauth_token:"))
-                        {
-                            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", t["oauth_token:".Length..].Trim());
-                            break;
-                        }
-                    }
-                }
-            }
+            // Accept octet-stream to get binary from GitHub API asset URL
             http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/octet-stream"));
 
-            var bytes = await http.GetByteArrayAsync(downloadUrl);
+            // Auth token
+            var token = GetGhToken();
+            if (!string.IsNullOrEmpty(token))
+            {
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                Services.Log.Info("Using auth token for download");
+            }
+
+            var bytes = await http.GetByteArrayAsync(assetApiUrl);
             var tempPath = Path.Combine(Path.GetTempPath(), "ClaudeMonitor-Setup.exe");
             await File.WriteAllBytesAsync(tempPath, bytes);
+            Services.Log.Info($"Downloaded {bytes.Length} bytes to {tempPath}");
 
-            // Launch installer silently and exit current instance
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = tempPath,
@@ -172,12 +164,45 @@ public partial class App : Application
                 UseShellExecute = true
             });
 
+            Services.Log.Info("Installer launched, exiting");
             ExitApp();
         }
         catch (Exception ex)
         {
+            Services.Log.Error("Download failed", ex);
             _trayIcon?.ShowBalloonTip(5000, "Update failed", $"Could not download update: {ex.Message}", System.Windows.Forms.ToolTipIcon.Error);
         }
+    }
+
+    private static string? GetGhToken()
+    {
+        // Dedicated token file
+        var tokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "widget-gh-token.txt");
+        try { if (File.Exists(tokenFile)) return File.ReadAllText(tokenFile).Trim(); } catch { }
+
+        // gh auth token command
+        try
+        {
+            var ghExe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "GitHub CLI", "gh.exe");
+            if (!File.Exists(ghExe)) ghExe = "gh";
+            var psi = new System.Diagnostics.ProcessStartInfo(ghExe, "auth token")
+            {
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                var token = proc.StandardOutput.ReadToEnd().Trim();
+                proc.WaitForExit(3000);
+                if (!string.IsNullOrEmpty(token) && !token.Contains(' '))
+                    return token;
+            }
+        }
+        catch { }
+
+        return null;
     }
 
     private void ExitApp()

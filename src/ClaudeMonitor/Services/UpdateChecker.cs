@@ -46,28 +46,36 @@ public sealed class UpdateChecker : IDisposable
         try
         {
             var token = LoadToken();
+            Log.Info($"Update check started. Current: {_currentVersion}, token: {(string.IsNullOrEmpty(token) ? "none" : "found")}");
+
             var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{_repo}/releases/latest");
             if (!string.IsNullOrEmpty(token))
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var response = await _http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return;
+            if (!response.IsSuccessStatusCode)
+            {
+                Log.Error($"Update check failed: HTTP {(int)response.StatusCode}");
+                return;
+            }
 
             var json = await response.Content.ReadAsStringAsync();
             var doc = JsonDocument.Parse(json);
 
             var tagName = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
             var newVersion = tagName.TrimStart('v');
+            Log.Info($"Latest release: {newVersion}");
 
             if (!IsNewer(newVersion, _currentVersion))
             {
+                Log.Info("No update available");
                 NoUpdateAvailable?.Invoke();
                 return;
             }
 
-            var downloadUrl = doc.RootElement.GetProperty("html_url").GetString() ?? "";
+            var downloadUrl = "";
 
-            // Find installer asset
+            // For private repos: use API asset URL (not browser_download_url which returns 404)
             if (doc.RootElement.TryGetProperty("assets", out var assets))
             {
                 foreach (var asset in assets.EnumerateArray())
@@ -75,15 +83,25 @@ public sealed class UpdateChecker : IDisposable
                     var name = asset.GetProperty("name").GetString() ?? "";
                     if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                     {
-                        downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? downloadUrl;
+                        downloadUrl = asset.GetProperty("url").GetString() ?? "";
+                        Log.Info($"Asset found: {name}, URL: {downloadUrl}");
                         break;
                     }
                 }
             }
 
+            if (string.IsNullOrEmpty(downloadUrl))
+            {
+                Log.Error("No .exe asset found in release");
+                return;
+            }
+
             UpdateAvailable?.Invoke(newVersion, downloadUrl);
         }
-        catch { /* silent fail */ }
+        catch (Exception ex)
+        {
+            Log.Error("Update check exception", ex);
+        }
     }
 
     private string? LoadToken()
