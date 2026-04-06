@@ -96,7 +96,7 @@ public sealed class UpdateChecker : IDisposable
         }
         catch { }
 
-        // Try gh CLI token
+        // Try gh CLI token from hosts.yml
         try
         {
             var ghHosts = Path.Combine(
@@ -111,6 +111,28 @@ public sealed class UpdateChecker : IDisposable
                     if (trimmed.StartsWith("oauth_token:"))
                         return trimmed["oauth_token:".Length..].Trim();
                 }
+            }
+        }
+        catch { }
+
+        // Try running `gh auth token` command
+        try
+        {
+            var ghExe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "GitHub CLI", "gh.exe");
+            if (!File.Exists(ghExe)) ghExe = "gh";
+            var psi = new System.Diagnostics.ProcessStartInfo(ghExe, "auth token")
+            {
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                var token = proc.StandardOutput.ReadToEnd().Trim();
+                proc.WaitForExit(3000);
+                if (!string.IsNullOrEmpty(token) && !token.Contains(' '))
+                    return token;
             }
         }
         catch { }
