@@ -39,7 +39,9 @@ public sealed class UpdateChecker : IDisposable
         startupDelay.Start();
     }
 
-    private async Task CheckAsync()
+    public event Action? NoUpdateAvailable;
+
+    public async Task CheckAsync()
     {
         try
         {
@@ -57,7 +59,11 @@ public sealed class UpdateChecker : IDisposable
             var tagName = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
             var newVersion = tagName.TrimStart('v');
 
-            if (!IsNewer(newVersion, _currentVersion)) return;
+            if (!IsNewer(newVersion, _currentVersion))
+            {
+                NoUpdateAvailable?.Invoke();
+                return;
+            }
 
             var downloadUrl = doc.RootElement.GetProperty("html_url").GetString() ?? "";
 

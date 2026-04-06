@@ -104,6 +104,12 @@ public partial class MainWindow : Window
         UpdateView();
     }
 
+    private void Settings_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        new SettingsWindow(this).ShowDialog();
+        e.Handled = true;
+    }
+
     private void SelectSession(SessionViewModel session)
     {
         if (_activeSession != null)

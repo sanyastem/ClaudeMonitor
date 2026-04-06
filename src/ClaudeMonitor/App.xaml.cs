@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows;
-using Microsoft.Win32;
 using Application = System.Windows.Application;
 
 namespace ClaudeMonitor;
@@ -11,6 +10,7 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private Mutex? _mutex;
     private Services.UpdateChecker? _updateChecker;
+    private bool _manualUpdateCheck;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -44,52 +44,49 @@ public partial class App : Application
 
     private void SetupTrayIcon()
     {
-        var menu = new System.Windows.Forms.ContextMenuStrip();
-
-        var showHide = new System.Windows.Forms.ToolStripMenuItem("Show/Hide");
-        showHide.Click += (_, _) => ToggleWindow();
-
-        var alwaysVisible = new System.Windows.Forms.ToolStripMenuItem("Always visible");
-        alwaysVisible.Checked = _mainWindow!.AlwaysVisible;
-        alwaysVisible.Click += (_, _) =>
+        var menu = new System.Windows.Forms.ContextMenuStrip
         {
-            _mainWindow.AlwaysVisible = !_mainWindow.AlwaysVisible;
-            alwaysVisible.Checked = _mainWindow.AlwaysVisible;
+            Renderer = new Services.DarkMenuRenderer(),
+            ShowImageMargin = false,
+            Padding = new System.Windows.Forms.Padding(4, 6, 4, 6)
         };
 
-        var onTop = new System.Windows.Forms.ToolStripMenuItem("Always on top");
-        onTop.Checked = _mainWindow!.AlwaysOnTop;
-        onTop.Click += (_, _) =>
+        var settings = new System.Windows.Forms.ToolStripMenuItem("Settings");
+        settings.Click += (_, _) =>
         {
-            _mainWindow.AlwaysOnTop = !_mainWindow.AlwaysOnTop;
-            onTop.Checked = _mainWindow.AlwaysOnTop;
+            var win = new SettingsWindow(_mainWindow!);
+            win.ShowDialog();
         };
 
-        var showLimits = new System.Windows.Forms.ToolStripMenuItem("Show limits when idle");
-        showLimits.Checked = _mainWindow.ShowIdleLimits;
-        showLimits.Click += (_, _) =>
+        var checkUpdate = new System.Windows.Forms.ToolStripMenuItem("Check for updates");
+        checkUpdate.Click += async (_, _) =>
         {
-            _mainWindow.ShowIdleLimits = !_mainWindow.ShowIdleLimits;
-            showLimits.Checked = _mainWindow.ShowIdleLimits;
+            checkUpdate.Enabled = false;
+            checkUpdate.Text = "Checking...";
+            _manualUpdateCheck = true;
+            await _updateChecker!.CheckAsync();
+            _manualUpdateCheck = false;
+            checkUpdate.Text = "Check for updates";
+            checkUpdate.Enabled = true;
         };
 
-        var autostart = new System.Windows.Forms.ToolStripMenuItem("Autostart");
-        autostart.Checked = IsAutostartEnabled();
-        autostart.Click += (_, _) =>
+        var about = new System.Windows.Forms.ToolStripMenuItem("About");
+        about.Click += (_, _) =>
         {
-            var enable = !IsAutostartEnabled();
-            SetAutostart(enable);
-            autostart.Checked = enable;
+            var ver = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "?";
+            System.Windows.MessageBox.Show(
+                $"Claude Monitor v{ver}\n\nDesktop widget for Claude Code session monitoring.\n\nCopyright (c) 2026 Aliaksandr Rubis\nMIT License",
+                "About Claude Monitor",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         };
 
         var exit = new System.Windows.Forms.ToolStripMenuItem("Exit");
         exit.Click += (_, _) => ExitApp();
 
-        menu.Items.Add(showHide);
-        menu.Items.Add(alwaysVisible);
-        menu.Items.Add(onTop);
-        menu.Items.Add(showLimits);
-        menu.Items.Add(autostart);
+        menu.Items.Add(settings);
+        menu.Items.Add(checkUpdate);
+        menu.Items.Add(about);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add(exit);
 
@@ -101,7 +98,7 @@ public partial class App : Application
             ContextMenuStrip = menu
         };
 
-        _trayIcon.DoubleClick += (_, _) => ToggleWindow();
+        _trayIcon.DoubleClick += (_, _) => new SettingsWindow(_mainWindow!).ShowDialog();
     }
 
     private static System.Drawing.Icon LoadIcon()
@@ -118,54 +115,16 @@ public partial class App : Application
         return System.Drawing.SystemIcons.Application;
     }
 
-    private void ToggleWindow()
-    {
-        if (_mainWindow == null) return;
-        if (_mainWindow.IsVisible)
-        {
-            _mainWindow.Hide();
-        }
-        else
-        {
-            _mainWindow.Show();
-            _mainWindow.Topmost = true;
-        }
-    }
-
-    private static bool IsAutostartEnabled()
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false);
-            return key?.GetValue("ClaudeMonitor") != null;
-        }
-        catch { return false; }
-    }
-
-    private static void SetAutostart(bool enable)
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-            if (key == null) return;
-
-            if (enable)
-            {
-                var exePath = Environment.ProcessPath ?? "";
-                key.SetValue("ClaudeMonitor", $"\"{exePath}\"");
-            }
-            else
-            {
-                key.DeleteValue("ClaudeMonitor", false);
-            }
-        }
-        catch { }
-    }
-
     private void SetupUpdateChecker()
     {
         var version = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
         _updateChecker = new Services.UpdateChecker(System.Windows.Threading.Dispatcher.CurrentDispatcher, version);
+        _updateChecker.NoUpdateAvailable += () =>
+        {
+            if (_manualUpdateCheck)
+                _trayIcon?.ShowBalloonTip(3000, "Claude Monitor", "You're up to date!", System.Windows.Forms.ToolTipIcon.Info);
+        };
+
         _updateChecker.UpdateAvailable += (newVersion, downloadUrl) =>
         {
             _trayIcon?.ShowBalloonTip(

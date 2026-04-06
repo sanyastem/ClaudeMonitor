@@ -32,7 +32,13 @@
             <DropShadowEffect BlurRadius="15" ShadowDepth="2" Color="#000000" Opacity="0.4"/>
         </Border.Effect>
         <StackPanel>
-            <TextBlock Text="Claude Monitor" FontSize="13" FontWeight="Bold" Foreground="#666666" Margin="0,0,0,6"/>
+            <DockPanel Margin="0,0,0,6">
+                <TextBlock Text="⚙" FontSize="14" Foreground="#555555" Cursor="Hand"
+                           DockPanel.Dock="Right" VerticalAlignment="Center"
+                           MouseLeftButtonDown="Settings_Click"
+                           ToolTip="Settings"/>
+                <TextBlock Text="Claude Monitor" FontSize="13" FontWeight="Bold" Foreground="#666666"/>
+            </DockPanel>
 
             <!-- No sessions message -->
             <Border x:Name="noSessionsPanel" CornerRadius="8" Padding="16,12" Background="#252545" Margin="0,4,0,0">

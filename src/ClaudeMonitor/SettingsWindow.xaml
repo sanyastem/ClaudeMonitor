@@ -1,0 +1,100 @@
+<Window x:Class="ClaudeMonitor.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Claude Monitor — Settings"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        Width="360" SizeToContent="Height"
+        Topmost="True"
+        MouseLeftButtonDown="Window_Drag">
+
+    <Window.Resources>
+        <Style x:Key="ToggleStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="Background" Value="#252545"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="DotOn" TargetType="Ellipse">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Fill" Value="#4ade80"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+        </Style>
+        <Style x:Key="DotOff" TargetType="Ellipse">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Stroke" Value="#555"/>
+            <Setter Property="StrokeThickness" Value="1.5"/>
+            <Setter Property="Fill" Value="Transparent"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Padding="10">
+    <Border CornerRadius="12" Padding="20">
+        <Border.Background>
+            <SolidColorBrush Color="#1a1a2e" Opacity="0.95"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="2" Color="#000000" Opacity="0.5"/>
+        </Border.Effect>
+        <StackPanel>
+            <!-- Header -->
+            <DockPanel Margin="0,0,0,14">
+                <TextBlock Text="Settings" FontSize="17" FontWeight="Bold" Foreground="#c084fc"/>
+                <TextBlock Text="✕" FontSize="15" Foreground="#555" Cursor="Hand"
+                           HorizontalAlignment="Right" VerticalAlignment="Top"
+                           MouseLeftButtonDown="Close_Click"/>
+            </DockPanel>
+
+            <!-- Always visible -->
+            <Border Style="{StaticResource ToggleStyle}" MouseLeftButtonDown="Toggle_AlwaysVisible">
+                <DockPanel>
+                    <Ellipse x:Name="dotAlwaysVisible" DockPanel.Dock="Left"/>
+                    <StackPanel>
+                        <TextBlock Text="Always visible" FontSize="12" Foreground="#ddd"/>
+                        <TextBlock Text="Show widget even without active sessions" FontSize="10" Foreground="#666"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Always on top -->
+            <Border Style="{StaticResource ToggleStyle}" MouseLeftButtonDown="Toggle_AlwaysOnTop">
+                <DockPanel>
+                    <Ellipse x:Name="dotAlwaysOnTop" DockPanel.Dock="Left"/>
+                    <StackPanel>
+                        <TextBlock Text="Always on top" FontSize="12" Foreground="#ddd"/>
+                        <TextBlock Text="Keep widget above all windows" FontSize="10" Foreground="#666"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Show limits when idle -->
+            <Border Style="{StaticResource ToggleStyle}" MouseLeftButtonDown="Toggle_ShowIdleLimits">
+                <DockPanel>
+                    <Ellipse x:Name="dotShowIdleLimits" DockPanel.Dock="Left"/>
+                    <StackPanel>
+                        <TextBlock Text="Show limits when idle" FontSize="12" Foreground="#ddd"/>
+                        <TextBlock Text="Display rate limits without active sessions" FontSize="10" Foreground="#666"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Autostart -->
+            <Border Style="{StaticResource ToggleStyle}" MouseLeftButtonDown="Toggle_Autostart">
+                <DockPanel>
+                    <Ellipse x:Name="dotAutostart" DockPanel.Dock="Left"/>
+                    <StackPanel>
+                        <TextBlock Text="Start with Windows" FontSize="12" Foreground="#ddd"/>
+                        <TextBlock Text="Launch automatically on login" FontSize="10" Foreground="#666"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </Border>
+    </Border>
+</Window>
