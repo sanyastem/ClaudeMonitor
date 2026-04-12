@@ -5,7 +5,7 @@
         Title="Claude Monitor"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True" ShowInTaskbar="False"
+        Topmost="False" ShowInTaskbar="False"
         ResizeMode="NoResize"
         SizeToContent="Height"
         Width="340"
@@ -112,10 +112,9 @@
                         <Run Text="{Binding ContextText, Mode=OneWay}"/><Run Text=" context"/>
                     </TextBlock>
 
-                    <!-- Cost / Time / Lines -->
+                    <!-- Cost / Time -->
                     <Grid Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
@@ -130,9 +129,22 @@
                             <TextBlock FontSize="13" FontWeight="Bold" Foreground="#38bdf8"
                                        Text="{Binding DurationText}"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="2">
+                    </Grid>
+
+                    <!-- Tokens / Lines -->
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock FontSize="9" Foreground="#666666" Text="Tokens"/>
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#e879f9"
+                                       Text="{Binding TokensText}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
                             <TextBlock FontSize="9" Foreground="#666666" Text="Lines"/>
-                            <TextBlock FontSize="13" FontWeight="Bold" Foreground="#888888"
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#888888"
                                        Text="{Binding LinesText}"/>
                         </StackPanel>
                     </Grid>

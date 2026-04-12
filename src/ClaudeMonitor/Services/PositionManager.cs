@@ -90,9 +90,18 @@ public sealed class PositionManager
 
     public bool AlwaysOnTop
     {
-        get => GetBool("AlwaysOnTop", true);
+        get => GetBool("AlwaysOnTop", false);
         set => WriteSetting("AlwaysOnTop", value);
     }
+
+    // Statusline element toggles (all on by default)
+    public bool SlModel { get => GetBool("sl_model", true); set => WriteSetting("sl_model", value); }
+    public bool SlContext { get => GetBool("sl_context", true); set => WriteSetting("sl_context", value); }
+    public bool SlCost { get => GetBool("sl_cost", true); set => WriteSetting("sl_cost", value); }
+    public bool SlTime { get => GetBool("sl_time", true); set => WriteSetting("sl_time", value); }
+    public bool SlTokens { get => GetBool("sl_tokens", true); set => WriteSetting("sl_tokens", value); }
+    public bool SlLines { get => GetBool("sl_lines", true); set => WriteSetting("sl_lines", value); }
+    public bool SlLimits { get => GetBool("sl_limits", true); set => WriteSetting("sl_limits", value); }
 
     public bool ShowIdleLimits
     {

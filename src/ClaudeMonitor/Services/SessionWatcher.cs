@@ -175,6 +175,8 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
     private long _rl5Reset;
     private long _rl7Reset;
     private long _timestamp;
+    private long _totalInputTokens;
+    private long _totalOutputTokens;
 
     public string Model { get => _model; private set { _model = value; OnPropertyChanged(nameof(Model)); } }
     public double ContextPercent { get => _contextPercent; private set { _contextPercent = value; OnPropertyChanged(nameof(ContextPercent)); OnPropertyChanged(nameof(ContextBarWidth)); OnPropertyChanged(nameof(ContextText)); } }
@@ -182,6 +184,8 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
     public long DurationMs { get => _durationMs; private set { _durationMs = value; OnPropertyChanged(nameof(DurationMs)); OnPropertyChanged(nameof(DurationText)); } }
     public int LinesAdded { get => _linesAdded; private set { _linesAdded = value; OnPropertyChanged(nameof(LinesAdded)); OnPropertyChanged(nameof(LinesText)); } }
     public int LinesRemoved { get => _linesRemoved; private set { _linesRemoved = value; OnPropertyChanged(nameof(LinesRemoved)); OnPropertyChanged(nameof(LinesText)); } }
+    public long TotalInputTokens { get => _totalInputTokens; private set { _totalInputTokens = value; OnPropertyChanged(nameof(TotalInputTokens)); OnPropertyChanged(nameof(TokensText)); } }
+    public long TotalOutputTokens { get => _totalOutputTokens; private set { _totalOutputTokens = value; OnPropertyChanged(nameof(TotalOutputTokens)); OnPropertyChanged(nameof(TokensText)); } }
     public double Rl5Percent { get => _rl5Percent; private set { _rl5Percent = value; OnPropertyChanged(nameof(Rl5Percent)); OnPropertyChanged(nameof(Rl5Text)); } }
     public double Rl7Percent { get => _rl7Percent; private set { _rl7Percent = value; OnPropertyChanged(nameof(Rl7Percent)); OnPropertyChanged(nameof(Rl7Text)); } }
     public long Rl5Reset { get => _rl5Reset; private set { _rl5Reset = value; OnPropertyChanged(nameof(Rl5Text)); } }
@@ -232,6 +236,14 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
         }
     }
     public string LinesText => $"+{LinesAdded} / -{LinesRemoved}";
+    public string TokensText => $"↓{FormatTokens(TotalInputTokens)}  ↑{FormatTokens(TotalOutputTokens)}";
+
+    private static string FormatTokens(long n)
+    {
+        if (n >= 1_000_000) return $"{n / 1_000_000.0:F1}M";
+        if (n >= 1_000) return $"{n / 1_000.0:F1}k";
+        return n.ToString();
+    }
 
     public string Rl5Text => FormatRl(Rl5Percent, Rl5Reset);
     public string Rl7Text => FormatRl(Rl7Percent, Rl7Reset);
@@ -272,6 +284,8 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
         Rl7Percent = data.RateLimits?.SevenDay?.UsedPercentage ?? -1;
         Rl5Reset = data.RateLimits?.FiveHour?.ResetsAt ?? 0;
         Rl7Reset = data.RateLimits?.SevenDay?.ResetsAt ?? 0;
+        TotalInputTokens = data.ContextWindow?.TotalInputTokens ?? 0;
+        TotalOutputTokens = data.ContextWindow?.TotalOutputTokens ?? 0;
         Timestamp = data.Timestamp;
     }
 

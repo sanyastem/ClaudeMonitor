@@ -94,6 +94,54 @@
                     </StackPanel>
                 </DockPanel>
             </Border>
+
+            <!-- Statusline section -->
+            <TextBlock Text="Statusline Elements" FontSize="13" FontWeight="Bold" Foreground="#888" Margin="0,14,0,6"/>
+
+            <WrapPanel Orientation="Horizontal">
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlModel">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlModel" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Model" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlContext">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlContext" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Context" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlCost">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlCost" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Cost" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlTime">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlTime" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Time" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlTokens">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlTokens" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Tokens" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlLines">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlLines" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Lines" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="6" Padding="8,5" Margin="0,2,4,2" Background="#252545" Cursor="Hand" MouseLeftButtonDown="Toggle_SlLimits">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="dotSlLimits" Width="8" Height="8" Margin="0,0,6,0"/>
+                        <TextBlock Text="Limits" FontSize="11" Foreground="#ccc"/>
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
         </StackPanel>
     </Border>
     </Border>

@@ -39,6 +39,12 @@ public sealed class ContextWindow
 
     [JsonPropertyName("context_window_size")]
     public long ContextWindowSize { get; set; }
+
+    [JsonPropertyName("total_input_tokens")]
+    public long TotalInputTokens { get; set; }
+
+    [JsonPropertyName("total_output_tokens")]
+    public long TotalOutputTokens { get; set; }
 }
 
 public sealed class CostInfo
