@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
@@ -48,17 +49,19 @@ public sealed class SessionWatcher : IDisposable
         LoadAll();
     }
 
-    private volatile string? _lastChangedFile;
+    // Accumulate all files touched in the debounce window so that multiple concurrent watcher
+    // threads don't lose each other's notifications.
+    private readonly ConcurrentDictionary<string, byte> _pendingChanges = new(StringComparer.OrdinalIgnoreCase);
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
-        _lastChangedFile = e.Name;
+        if (e.Name != null) _pendingChanges[e.Name] = 1;
         _dispatcher.BeginInvoke(() => ScheduleRefresh());
     }
 
     private void OnFileDeleted(object sender, FileSystemEventArgs e)
     {
-        _lastChangedFile = null;
+        if (e.Name != null) _pendingChanges.TryRemove(e.Name, out _);
         _dispatcher.BeginInvoke(() => ScheduleRefresh());
     }
 
@@ -73,10 +76,18 @@ public sealed class SessionWatcher : IDisposable
         _debounceTimer.Start();
     }
 
-    private void LoadAll()
+    internal void LoadAll()
     {
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var activeIds = new HashSet<string>();
+
+        // Snapshot and clear the pending set so a watcher event that fires during LoadAll lands
+        // in the next refresh cycle, not this one.
+        var changedFiles = _pendingChanges.Keys.ToArray();
+        foreach (var k in changedFiles) _pendingChanges.TryRemove(k, out _);
+        var changedSids = new HashSet<string>(
+            changedFiles.Select(f => Path.GetFileNameWithoutExtension(f)!),
+            StringComparer.OrdinalIgnoreCase);
 
         try
         {
@@ -98,9 +109,7 @@ public sealed class SessionWatcher : IDisposable
                     }
 
                     activeIds.Add(sid);
-                    var wasChanged = _lastChangedFile != null &&
-                        Path.GetFileNameWithoutExtension(_lastChangedFile) == sid;
-                    UpdateOrAddSession(sid, data, wasChanged);
+                    UpdateOrAddSession(sid, data, changedSids.Contains(sid));
                 }
                 catch (Exception ex) { Log.Error($"Failed to parse session file: {file}", ex); }
             }
@@ -206,15 +215,24 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
         }
     }
 
-    public System.Windows.Media.SolidColorBrush TabBackground => new(
-        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
-            IsActive ? "#252545" : "#16162a"));
-    public System.Windows.Media.SolidColorBrush TabForeground => new(
-        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
-            IsActive ? "#c084fc" : "#555555"));
-    public System.Windows.Media.SolidColorBrush ActiveIndicator => new(
-        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
-            IsActive ? "#4ade80" : "#333333"));
+    private static readonly System.Windows.Media.SolidColorBrush TabBackgroundActive = FrozenBrush("#252545");
+    private static readonly System.Windows.Media.SolidColorBrush TabBackgroundInactive = FrozenBrush("#16162a");
+    private static readonly System.Windows.Media.SolidColorBrush TabForegroundActive = FrozenBrush("#c084fc");
+    private static readonly System.Windows.Media.SolidColorBrush TabForegroundInactive = FrozenBrush("#555555");
+    private static readonly System.Windows.Media.SolidColorBrush ActiveIndicatorOn = FrozenBrush("#4ade80");
+    private static readonly System.Windows.Media.SolidColorBrush ActiveIndicatorOff = FrozenBrush("#333333");
+
+    private static System.Windows.Media.SolidColorBrush FrozenBrush(string hex)
+    {
+        var b = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));
+        b.Freeze();
+        return b;
+    }
+
+    public System.Windows.Media.SolidColorBrush TabBackground => IsActive ? TabBackgroundActive : TabBackgroundInactive;
+    public System.Windows.Media.SolidColorBrush TabForeground => IsActive ? TabForegroundActive : TabForegroundInactive;
+    public System.Windows.Media.SolidColorBrush ActiveIndicator => IsActive ? ActiveIndicatorOn : ActiveIndicatorOff;
 
     public string ShortId => SessionId.Length > 8 ? SessionId[..8] : SessionId;
     public double ContextBarWidth => Math.Round(ContextPercent * 2.72, 1); // 272px max scaled

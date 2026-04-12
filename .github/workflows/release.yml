@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.4). Tag must already exist or be created.'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $env:GITHUB_REF -replace '^refs/tags/',''
+          } else {
+            '${{ inputs.tag }}'
+          }
+          if (-not $tag) { throw 'No tag supplied' }
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') { throw "Tag '$tag' must be vMAJOR.MINOR.PATCH" }
+          $version = $tag.Substring(1)
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Verify csproj and iss versions match tag
+        shell: pwsh
+        run: |
+          $expected = '${{ steps.tag.outputs.version }}'
+          $csprojVer = ([xml](Get-Content src/ClaudeMonitor/ClaudeMonitor.csproj)).Project.PropertyGroup.Version | Where-Object { $_ }
+          $issVer = (Select-String -Path installer/ClaudeMonitor.iss -Pattern '#define MyAppVersion "([^"]+)"').Matches[0].Groups[1].Value
+          Write-Host "tag=$expected csproj=$csprojVer iss=$issVer"
+          if ($csprojVer -ne $expected) { throw "csproj Version '$csprojVer' != tag '$expected'" }
+          if ($issVer -ne $expected) { throw "iss MyAppVersion '$issVer' != tag '$expected'" }
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test tests/ClaudeMonitor.Tests/ClaudeMonitor.Tests.csproj -c Release
+
+      - name: Publish
+        run: dotnet publish src/ClaudeMonitor/ClaudeMonitor.csproj -c Release -r win-x64 --self-contained false
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\ClaudeMonitor.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+
+      # OPTIONAL: code-signing via SignPath Foundation. Uncomment after onboarding:
+      # https://about.signpath.io/foundation/onboarding
+      #
+      # - name: Submit for signing
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: ${{ vars.SIGNPATH_ORG_ID }}
+      #     project-slug: claudemonitor
+      #     signing-policy-slug: release-signing
+      #     github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+      #     wait-for-completion: true
+      #     output-artifact-directory: installer/output
+
+      - name: Compute SHA-256
+        id: hash
+        shell: pwsh
+        run: |
+          $version = '${{ steps.tag.outputs.version }}'
+          $file = "installer/output/ClaudeMonitor-Setup-$version.exe"
+          $sha = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "file=$file" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "SHA256=$sha"
+
+      - name: Generate release body
+        id: body
+        shell: pwsh
+        run: |
+          $version = '${{ steps.tag.outputs.version }}'
+          $sha = '${{ steps.hash.outputs.sha }}'
+          $body = @"
+## Claude Monitor v$version
+
+See [CHANGELOG](https://github.com/${{ github.repository }}/blob/master/CHANGELOG.md) for details.
+
+### Integrity
+
+The auto-updater verifies this digest before launching the installer. Releases without a valid ``SHA256:`` line are refused by clients >= 1.0.3.
+
+``````
+SHA256: $sha
+``````
+
+Manual verification:
+
+``````powershell
+Get-FileHash .\ClaudeMonitor-Setup-$version.exe -Algorithm SHA256
+``````
+"@
+          $body | Out-File release-body.md -Encoding utf8
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Claude Monitor ${{ steps.tag.outputs.tag }}
+          body_path: release-body.md
+          files: ${{ steps.hash.outputs.file }}
+          fail_on_unmatched_files: true

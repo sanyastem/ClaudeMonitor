@@ -9,6 +9,8 @@ public sealed class PositionManager
 {
     private readonly string _posFile;
     private readonly string _settingsFile;
+    private readonly string _lastLimitsFile;
+    private readonly object _writeLock = new();
 
     public PositionManager()
     {
@@ -20,14 +22,40 @@ public sealed class PositionManager
         _lastLimitsFile = Path.Combine(dir, "widget-last-limits.json");
     }
 
-    public void Save(double left, double top)
+    private void AtomicWrite(string path, string json)
     {
+        var tmp = $"{path}.{Environment.ProcessId}.tmp";
         try
         {
-            var json = JsonSerializer.Serialize(new { Left = left, Top = top });
-            File.WriteAllText(_posFile, json);
+            File.WriteAllText(tmp, json);
+            // File.Move with overwrite=true is atomic on NTFS via MoveFileEx with REPLACE_EXISTING.
+            File.Move(tmp, path, overwrite: true);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Log.Error($"Atomic write failed: {path}", ex);
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+        }
+    }
+
+    private static string ReadAllTextNoBom(string path)
+    {
+        // Strip UTF-8 BOM defensively so files hand-edited in Notepad parse.
+        var text = File.ReadAllText(path);
+        return text.Length > 0 && text[0] == '﻿' ? text.Substring(1) : text;
+    }
+
+    public void Save(double left, double top)
+    {
+        lock (_writeLock)
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(new { Left = left, Top = top });
+                AtomicWrite(_posFile, json);
+            }
+            catch (Exception ex) { Log.Error($"Save position failed", ex); }
+        }
     }
 
     public (double left, double top)? Load()
@@ -35,12 +63,12 @@ public sealed class PositionManager
         try
         {
             if (!File.Exists(_posFile)) return null;
-            using var doc = JsonDocument.Parse(File.ReadAllText(_posFile));
+            using var doc = JsonDocument.Parse(ReadAllTextNoBom(_posFile));
             var left = doc.RootElement.GetProperty("Left").GetDouble();
             var top = doc.RootElement.GetProperty("Top").GetDouble();
             return (left, top);
         }
-        catch { return null; }
+        catch (Exception ex) { Log.Error($"Load position failed: {_posFile}", ex); return null; }
     }
 
     private Dictionary<string, object> ReadSettings()
@@ -48,7 +76,7 @@ public sealed class PositionManager
         try
         {
             if (!File.Exists(_settingsFile)) return new();
-            using var doc = JsonDocument.Parse(File.ReadAllText(_settingsFile));
+            using var doc = JsonDocument.Parse(ReadAllTextNoBom(_settingsFile));
             var dict = new Dictionary<string, object>();
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
@@ -61,19 +89,22 @@ public sealed class PositionManager
             }
             return dict;
         }
-        catch { return new(); }
+        catch (Exception ex) { Log.Error($"Read settings failed: {_settingsFile}", ex); return new(); }
     }
 
     private void WriteSetting(string key, object value)
     {
-        try
+        lock (_writeLock)
         {
-            var settings = ReadSettings();
-            settings[key] = value;
-            var json = JsonSerializer.Serialize(settings);
-            File.WriteAllText(_settingsFile, json);
+            try
+            {
+                var settings = ReadSettings();
+                settings[key] = value;
+                var json = JsonSerializer.Serialize(settings);
+                AtomicWrite(_settingsFile, json);
+            }
+            catch (Exception ex) { Log.Error("Write setting failed", ex); }
         }
-        catch { }
     }
 
     private bool GetBool(string key, bool defaultValue = false)
@@ -109,16 +140,17 @@ public sealed class PositionManager
         set => WriteSetting("ShowIdleLimits", value);
     }
 
-    private readonly string _lastLimitsFile;
-
     public void SaveLastLimits(double rl5, long rl5Reset, double rl7, long rl7Reset)
     {
-        try
+        lock (_writeLock)
         {
-            var json = JsonSerializer.Serialize(new { Rl5 = rl5, Rl5Reset = rl5Reset, Rl7 = rl7, Rl7Reset = rl7Reset });
-            File.WriteAllText(_lastLimitsFile, json);
+            try
+            {
+                var json = JsonSerializer.Serialize(new { Rl5 = rl5, Rl5Reset = rl5Reset, Rl7 = rl7, Rl7Reset = rl7Reset });
+                AtomicWrite(_lastLimitsFile, json);
+            }
+            catch (Exception ex) { Log.Error("Save last limits failed", ex); }
         }
-        catch { }
     }
 
     public (double rl5, long rl5Reset, double rl7, long rl7Reset)? LoadLastLimits()
@@ -126,7 +158,7 @@ public sealed class PositionManager
         try
         {
             if (!File.Exists(_lastLimitsFile)) return null;
-            using var doc = JsonDocument.Parse(File.ReadAllText(_lastLimitsFile));
+            using var doc = JsonDocument.Parse(ReadAllTextNoBom(_lastLimitsFile));
             return (
                 doc.RootElement.GetProperty("Rl5").GetDouble(),
                 doc.RootElement.GetProperty("Rl5Reset").GetInt64(),
@@ -134,7 +166,7 @@ public sealed class PositionManager
                 doc.RootElement.GetProperty("Rl7Reset").GetInt64()
             );
         }
-        catch { return null; }
+        catch (Exception ex) { Log.Error($"Load last limits failed: {_lastLimitsFile}", ex); return null; }
     }
 
     public void ApplyDefaultPosition(Window window)

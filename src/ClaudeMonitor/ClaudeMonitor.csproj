@@ -10,7 +10,7 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyName>ClaudeMonitor</AssemblyName>
     <RootNamespace>ClaudeMonitor</RootNamespace>
-    <Version>1.0.2</Version>
+    <Version>1.0.4</Version>
     <Authors>Aliaksandr Rubis</Authors>
     <Company>Aliaksandr Rubis</Company>
     <Copyright>Copyright (c) 2026 Aliaksandr Rubis</Copyright>
@@ -19,6 +19,13 @@
     <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <Deterministic>true</Deterministic>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>

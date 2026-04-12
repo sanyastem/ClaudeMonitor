@@ -20,13 +20,39 @@ public partial class App : Application
         var ver = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "?";
         Services.Log.Info($"Claude Monitor v{ver} starting");
 
-        // Single instance check
-        _mutex = new Mutex(true, "ClaudeMonitor_SingleInstance", out var isNew);
+        // Single instance check. Local\ namespace = per-user-session (correct for RDP / fast user
+        // switch). AbandonedMutexException is thrown when a prior instance crashed without releasing;
+        // we treat it as "we now own the mutex" rather than crashing startup.
+        bool isNew;
+        try
+        {
+            _mutex = new Mutex(true, @"Local\ClaudeMonitor_SingleInstance_v1", out isNew);
+        }
+        catch (AbandonedMutexException)
+        {
+            Services.Log.Info("Previous instance was abandoned; taking ownership");
+            _mutex = new Mutex(true, @"Local\ClaudeMonitor_SingleInstance_v1", out _);
+            isNew = true;
+        }
         if (!isNew)
         {
             Shutdown();
             return;
         }
+
+        // Catch-all for unhandled exceptions — log them so we have a forensic trail.
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            Services.Log.Error("Unhandled exception", args.ExceptionObject as Exception);
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Services.Log.Error("Dispatcher unhandled exception", args.Exception);
+            args.Handled = true;
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Services.Log.Error("Unobserved task exception", args.Exception);
+            args.SetObserved();
+        };
 
         _mainWindow = new MainWindow();
 
@@ -126,7 +152,13 @@ public partial class App : Application
                 _trayIcon?.ShowBalloonTip(3000, "Claude Monitor", "You're up to date!", System.Windows.Forms.ToolTipIcon.Info);
         };
 
-        _updateChecker.UpdateAvailable += (newVersion, downloadUrl) =>
+        _updateChecker.CheckFailed += msg =>
+        {
+            if (_manualUpdateCheck)
+                _trayIcon?.ShowBalloonTip(5000, "Update check failed", msg, System.Windows.Forms.ToolTipIcon.Warning);
+        };
+
+        _updateChecker.UpdateAvailable += (newVersion, downloadUrl, expectedSha) =>
         {
             _trayIcon?.ShowBalloonTip(
                 5000,
@@ -138,35 +170,72 @@ public partial class App : Application
             if (_balloonTipClickedHandler != null)
                 _trayIcon!.BalloonTipClicked -= _balloonTipClickedHandler;
 
-            _balloonTipClickedHandler = async (_, _) => await DownloadAndInstall(downloadUrl);
+            _balloonTipClickedHandler = async (_, _) => await DownloadAndInstall(downloadUrl, expectedSha);
             _trayIcon!.BalloonTipClicked += _balloonTipClickedHandler;
         };
     }
 
-    private async Task DownloadAndInstall(string assetApiUrl)
+    private System.Threading.CancellationTokenSource? _downloadCts;
+
+    private async Task DownloadAndInstall(string assetApiUrl, string expectedSha256)
     {
+        string? tempPath = null;
+        _downloadCts = new System.Threading.CancellationTokenSource();
+        var ct = _downloadCts.Token;
         try
         {
+            if (!Services.UpdateChecker.IsTrustedAssetUrl(assetApiUrl))
+            {
+                Services.Log.Error($"Refusing to download from untrusted URL: {assetApiUrl}");
+                _trayIcon?.ShowBalloonTip(5000, "Update blocked", "Update URL is not trusted.", System.Windows.Forms.ToolTipIcon.Error);
+                return;
+            }
+            if (string.IsNullOrEmpty(expectedSha256) || expectedSha256.Length != 64)
+            {
+                Services.Log.Error("Refusing to download: no expected SHA-256 digest");
+                _trayIcon?.ShowBalloonTip(5000, "Update blocked", "Release is missing an integrity digest.", System.Windows.Forms.ToolTipIcon.Error);
+                return;
+            }
+
             Services.Log.Info($"Downloading update from: {assetApiUrl}");
             _trayIcon?.ShowBalloonTip(3000, "Claude Monitor", "Downloading update...", System.Windows.Forms.ToolTipIcon.Info);
 
-            using var http = new System.Net.Http.HttpClient();
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("ClaudeMonitor");
-            // Accept octet-stream to get binary from GitHub API asset URL
-            http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/octet-stream"));
-
-            // Auth token
             var token = GetGhToken();
-            if (!string.IsNullOrEmpty(token))
+            var downloader = new Services.AssetDownloader();
+            var progress = new Progress<(long read, long? total)>(p =>
             {
-                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                Services.Log.Info("Using auth token for download");
-            }
+                if (p.total is long t && t > 0)
+                {
+                    var pct = (int)(p.read * 100L / t);
+                    if (pct % 25 == 0)
+                        Services.Log.Info($"Download progress: {pct}% ({p.read}/{t} bytes)");
+                }
+            });
+            using var bytes = await downloader.DownloadAsync(assetApiUrl, token, progress, ct);
 
-            var bytes = await http.GetByteArrayAsync(assetApiUrl);
-            var tempPath = Path.Combine(Path.GetTempPath(), "ClaudeMonitor-Setup.exe");
-            await File.WriteAllBytesAsync(tempPath, bytes);
+            tempPath = Path.Combine(Path.GetTempPath(), $"ClaudeMonitor-Setup-{Guid.NewGuid():N}.exe");
+            await using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                bytes.Position = 0;
+                await bytes.CopyToAsync(fs, ct);
+            }
             Services.Log.Info($"Downloaded {bytes.Length} bytes to {tempPath}");
+
+            // Integrity check (fail-closed): SHA-256 must match the digest from the release body.
+            var actualSha = await ComputeSha256(tempPath);
+            if (!string.Equals(actualSha, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                Services.Log.Error($"SHA-256 mismatch. expected={expectedSha256} actual={actualSha}");
+                _trayIcon?.ShowBalloonTip(5000, "Update blocked", "Downloaded installer failed integrity check.", System.Windows.Forms.ToolTipIcon.Error);
+                return;
+            }
+            Services.Log.Info("SHA-256 verified");
+
+            // Authenticode check (defense-in-depth, advisory): logs signer if signed, does not block unsigned.
+            if (Services.SignatureVerifier.VerifyAuthenticode(tempPath, out var signer))
+                Services.Log.Info($"Authenticode verified, signer: {signer ?? "(unknown)"}");
+            else
+                Services.Log.Info("Installer is not Authenticode-signed; relying on SHA-256 digest only");
 
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
@@ -182,7 +251,17 @@ public partial class App : Application
         {
             Services.Log.Error("Download failed", ex);
             _trayIcon?.ShowBalloonTip(5000, "Update failed", $"Could not download update: {ex.Message}", System.Windows.Forms.ToolTipIcon.Error);
+            // Best-effort cleanup of a partial download
+            if (tempPath != null) { try { File.Delete(tempPath); } catch { } }
         }
+    }
+
+    private static async Task<string> ComputeSha256(string path)
+    {
+        await using var fs = File.OpenRead(path);
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var hash = await sha.ComputeHashAsync(fs);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private static string? GetGhToken()
@@ -221,19 +300,32 @@ public partial class App : Application
 
     private void ExitApp()
     {
+        try { _downloadCts?.Cancel(); } catch { }
+        if (_balloonTipClickedHandler != null && _trayIcon != null)
+        {
+            try { _trayIcon.BalloonTipClicked -= _balloonTipClickedHandler; } catch { }
+            _balloonTipClickedHandler = null;
+        }
         _updateChecker?.Dispose();
         _trayIcon?.Dispose();
+        _trayIcon = null;
         _mainWindow?.Close();
-        _mutex?.ReleaseMutex();
-        _mutex?.Dispose();
+        ReleaseMutex();
         Shutdown();
+    }
+
+    private void ReleaseMutex()
+    {
+        if (_mutex == null) return;
+        try { _mutex.ReleaseMutex(); } catch { }
+        try { _mutex.Dispose(); } catch { }
+        _mutex = null;
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _trayIcon?.Dispose();
-        _mutex?.ReleaseMutex();
-        _mutex?.Dispose();
+        ReleaseMutex();
         base.OnExit(e);
     }
 }

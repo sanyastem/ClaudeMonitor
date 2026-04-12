@@ -59,12 +59,27 @@ Download and run the setup from [Releases](https://github.com/sanyastem/ClaudeMo
 
 ### Build from source
 
-```bash
-cd src/ClaudeMonitor
-dotnet publish -c Release --self-contained false -p:PublishSingleFile=true
+```powershell
+dotnet publish src/ClaudeMonitor/ClaudeMonitor.csproj -c Release -r win-x64 --self-contained false
 ```
 
-Output: `bin/Release/net10.0-windows/win-x64/publish/ClaudeMonitor.exe`
+Output: `src/ClaudeMonitor/bin/Release/net10.0-windows/win-x64/publish/ClaudeMonitor.exe`
+
+To build the installer:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\ClaudeMonitor.iss
+```
+
+### SmartScreen warning on first install
+
+The installer is not yet Authenticode-signed, so Windows SmartScreen may show a "Windows protected your PC" warning. To bypass it: click **More info → Run anyway**. You can verify the file before running:
+
+```powershell
+Get-FileHash .\ClaudeMonitor-Setup-x.x.x.exe -Algorithm SHA256
+```
+
+The hash should match the `SHA256:` line in the [GitHub Release](https://github.com/sanyastem/ClaudeMonitor/releases/latest) body.
 
 ### Manual statusline setup
 
