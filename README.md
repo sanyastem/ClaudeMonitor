@@ -6,6 +6,14 @@ A lightweight WPF desktop widget for Windows that displays real-time Claude Code
 
 **[Latest Release](https://github.com/sanyastem/ClaudeMonitor/releases/latest)** — download `ClaudeMonitor-Setup-x.x.x.exe` and run the installer.
 
+> **Note about SmartScreen.** The installer is not yet Authenticode-signed (free OSS signing via SignPath Foundation is in progress). On first install Windows may show *"Windows protected your PC — unrecognized app"*. Click **More info → Run anyway** to proceed. To verify the download before running:
+>
+> ```powershell
+> (Get-FileHash .\ClaudeMonitor-Setup-x.x.x.exe -Algorithm SHA256).Hash
+> ```
+>
+> The hash must match the `SHA256:` line in the corresponding [release notes](https://github.com/sanyastem/ClaudeMonitor/releases/latest). Subsequent auto-updates verify this hash automatically and refuse to install on mismatch.
+
 ## Features
 
 - **Multi-session tabs** — each Claude Code session displayed as a tab, auto-switches to active session
@@ -70,16 +78,6 @@ To build the installer:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\ClaudeMonitor.iss
 ```
-
-### SmartScreen warning on first install
-
-The installer is not yet Authenticode-signed, so Windows SmartScreen may show a "Windows protected your PC" warning. To bypass it: click **More info → Run anyway**. You can verify the file before running:
-
-```powershell
-Get-FileHash .\ClaudeMonitor-Setup-x.x.x.exe -Algorithm SHA256
-```
-
-The hash should match the `SHA256:` line in the [GitHub Release](https://github.com/sanyastem/ClaudeMonitor/releases/latest) body.
 
 ### Manual statusline setup
 

@@ -1,0 +1,64 @@
+name: Bug report
+description: Something works incorrectly or breaks.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A few quick questions so the fix lands fast.
+
+  - type: input
+    id: version
+    attributes:
+      label: Claude Monitor version
+      description: Right-click tray icon → About, or check `widget.log`.
+      placeholder: "1.0.4"
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version + build
+      description: Run `winver` to find this.
+      placeholder: "Windows 11 Pro 23H2 (build 22631.4317)"
+    validations:
+      required: true
+
+  - type: input
+    id: claude-code
+    attributes:
+      label: Claude Code version
+      description: Run `claude --version`.
+      placeholder: "claude-code 1.x.x"
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, what did you see, and how do we reproduce it?
+      placeholder: |
+        1. Started Claude Code session
+        2. Widget tab appeared but cost stayed at $0.00
+        3. Expected the cost to update like in earlier versions
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Relevant log entries
+      description: Last 30-50 lines from `%USERPROFILE%\.claude\widget.log`. Token/secrets are never written there but please skim anyway.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: tried
+    attributes:
+      label: Quick checks
+      options:
+        - label: I'm on the latest release (`gh release view --repo sanyastem/ClaudeMonitor`)
+        - label: I checked the [existing issues](https://github.com/sanyastem/ClaudeMonitor/issues?q=is%3Aissue) for duplicates
