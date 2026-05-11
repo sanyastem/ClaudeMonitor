@@ -13,6 +13,8 @@ A lightweight WPF desktop widget for Windows that displays real-time Claude Code
 > ```
 >
 > The hash must match the `SHA256:` line in the corresponding [release notes](https://github.com/sanyastem/ClaudeMonitor/releases/latest). Subsequent auto-updates verify this hash automatically and refuse to install on mismatch.
+>
+> See [docs/code-signing-policy.md](docs/code-signing-policy.md) for the project's signing infrastructure, roles, and pipeline.
 
 ## Features
 
