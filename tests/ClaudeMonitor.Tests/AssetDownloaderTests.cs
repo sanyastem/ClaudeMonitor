@@ -96,6 +96,13 @@ public class AssetDownloaderTests
             d.DownloadAsync("https://api.github.com/repos/x/y/releases/assets/1", "tok"));
     }
 
+    private sealed class SyncProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _onReport;
+        public SyncProgress(Action<T> onReport) => _onReport = onReport;
+        public void Report(T value) => _onReport(value);
+    }
+
     [Fact]
     public async Task ProgressIsReported_DuringDownload()
     {
@@ -108,7 +115,8 @@ public class AssetDownloaderTests
         var d = new AssetDownloader(handler);
 
         var reports = new List<(long, long?)>();
-        var p = new Progress<(long, long?)>(r => reports.Add(r));
+        // Synchronous IProgress so we don't race a thread-pool dispatch from Progress<T>.
+        var p = new SyncProgress<(long, long?)>(reports.Add);
         var ms = await d.DownloadAsync("https://api.github.com/x", null, p);
 
         Assert.Equal(payload.Length, ms.Length);

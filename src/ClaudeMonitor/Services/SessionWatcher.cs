@@ -266,14 +266,24 @@ public sealed class SessionViewModel : System.ComponentModel.INotifyPropertyChan
     public string Rl5Text => FormatRl(Rl5Percent, Rl5Reset);
     public string Rl7Text => FormatRl(Rl7Percent, Rl7Reset);
 
+    // Anthropic may switch resets_at to milliseconds. 10^12 seconds is year 33658,
+    // so anything past that is unambiguously ms. statusline.js normalizes too;
+    // this is a defence-in-depth for when something else writes the JSON.
+    public static long NormalizeEpochSeconds(long epoch)
+    {
+        if (epoch <= 0) return 0;
+        return epoch > 1_000_000_000_000L ? epoch / 1000 : epoch;
+    }
+
     private static string FormatRl(double pct, long resetEpoch)
     {
         if (pct < 0) return "n/a";
-        var v = (int)Math.Round(pct);
+        var v = (int)Math.Round(pct, MidpointRounding.AwayFromZero);
         var reset = "";
-        if (resetEpoch > 0)
+        var normalizedEpoch = NormalizeEpochSeconds(resetEpoch);
+        if (normalizedEpoch > 0)
         {
-            var diff = Math.Max(0, resetEpoch - DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            var diff = Math.Max(0, normalizedEpoch - DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             var d = (int)(diff / 86400);
             var h = (int)(diff % 86400 / 3600);
             var m = (int)(diff % 3600 / 60);

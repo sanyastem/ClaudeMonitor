@@ -5,11 +5,28 @@ try {
   const path = require("path");
   const os = require("os");
 
-  const SL_VERSION = "1.0.4";
+  const SL_VERSION = "1.0.5";
 
   function readJson(p) {
     const raw = fs.readFileSync(p, "utf8").replace(/^﻿/, "");
     return JSON.parse(raw);
+  }
+
+  // Anthropic may switch resets_at to milliseconds at any point. 10^12 seconds
+  // is year 33658, so anything past that is unambiguously ms.
+  function normalizeEpochSeconds(epoch) {
+    if (!epoch || epoch <= 0) return 0;
+    return epoch > 1e12 ? Math.floor(epoch / 1000) : epoch;
+  }
+
+  // Infer context window size from model id if Claude Code didn't include it.
+  // Hard-coding all model sizes is brittle; we cover the common cases.
+  function inferContextWindowSize(modelId) {
+    if (!modelId) return null;
+    const id = String(modelId).toLowerCase();
+    if (id.includes("1m") || id.includes("-1m")) return 1_000_000;
+    if (id.includes("opus") || id.includes("sonnet") || id.includes("haiku")) return 200_000;
+    return null;
   }
 
   let d;
@@ -22,12 +39,26 @@ try {
   } catch (e) {}
   const show = (key) => cfg[key] !== false;
 
-  const cwSize = d.context_window?.context_window_size || 200000;
+  // Context window size: prefer payload, then infer from model id, then fall back to 200k.
+  const cwSize =
+    d.context_window?.context_window_size ||
+    inferContextWindowSize(d.model?.id) ||
+    200000;
+
+  // Tokens actually occupying the context window for the next turn:
+  //   input_tokens          — uncached portion of this turn's input
+  //   cache_creation_*      — portion newly written to prompt cache
+  //   cache_read_*          — portion served from prompt cache
+  // We DO NOT add output_tokens here: Anthropic's `input_tokens` on the next
+  // turn already includes the previous turn's output (as part of conversation
+  // history), so adding output would double-count it.
   const cu = d.context_window?.current_usage;
   const usedTokens = cu
-    ? (cu.input_tokens || 0) + (cu.output_tokens || 0) + (cu.cache_creation_input_tokens || 0) + (cu.cache_read_input_tokens || 0)
+    ? (cu.input_tokens || 0) + (cu.cache_creation_input_tokens || 0) + (cu.cache_read_input_tokens || 0)
     : 0;
-  const ctx = usedTokens > 0 ? Math.round(usedTokens / cwSize * 100) : Math.round(d.context_window?.used_percentage || 0);
+  const ctx = usedTokens > 0
+    ? Math.min(100, Math.round((usedTokens / cwSize) * 100))
+    : Math.round(d.context_window?.used_percentage || 0);
 
   // Save per-session data for the widget — atomic write (tmp + rename).
   try {
@@ -36,7 +67,18 @@ try {
     const sid = (d.session_id || "unknown").replace(/[^a-zA-Z0-9_-]/g, "");
     if (sid) {
       const payload = { ...d, _ts: Date.now(), _sl_version: SL_VERSION };
-      if (payload.context_window) payload.context_window.used_percentage = ctx;
+      if (payload.context_window) {
+        payload.context_window.used_percentage = ctx;
+        payload.context_window.context_window_size = cwSize;
+      }
+      // Normalize resets_at so the widget can rely on Unix seconds regardless
+      // of what Anthropic sends.
+      if (payload.rate_limits?.five_hour) {
+        payload.rate_limits.five_hour.resets_at = rl5reset;
+      }
+      if (payload.rate_limits?.seven_day) {
+        payload.rate_limits.seven_day.resets_at = rl7reset;
+      }
       const dst = path.join(dir, `${sid}.json`);
       const tmp = `${dst}.${process.pid}.tmp`;
       fs.writeFileSync(tmp, JSON.stringify(payload));
@@ -53,8 +95,8 @@ try {
   const totalOut = d.context_window?.total_output_tokens || 0;
   const rl5 = d.rate_limits?.five_hour?.used_percentage;
   const rl7 = d.rate_limits?.seven_day?.used_percentage;
-  const rl5reset = d.rate_limits?.five_hour?.resets_at;
-  const rl7reset = d.rate_limits?.seven_day?.resets_at;
+  const rl5reset = normalizeEpochSeconds(d.rate_limits?.five_hour?.resets_at);
+  const rl7reset = normalizeEpochSeconds(d.rate_limits?.seven_day?.resets_at);
 
   const durS = Math.floor(durMs / 1000);
   const dd = Math.floor(durS / 86400);
